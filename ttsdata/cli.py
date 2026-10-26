@@ -6,6 +6,8 @@
   ttsdata verify         [--only UID ...] [--model REPO]
   ttsdata build          [--max-cer 0.2 ...]
   ttsdata speakers       [--sweep 0.4,0.5,0.6] [--dry-run]
+  ttsdata merge-clips    [--limit-episodes N]
+  ttsdata soundtags      [--listen 4]
   ttsdata stats
 """
 from __future__ import annotations
@@ -162,6 +164,21 @@ def cmd_speakers(args) -> None:
     run(cfg, sweep=args.sweep, sweep_merge=args.sweep_merge, write=not (args.dry_run or args.sweep))
 
 
+def cmd_merge_clips(args) -> None:
+    from .clipmerge import run
+
+    cfg = _cfg_from_args(args)
+    st = run(cfg, limit_episodes=args.limit_episodes)
+    print(json.dumps({k: v for k, v in st.items() if k != "per_series"}, ensure_ascii=False, indent=2))
+
+
+def cmd_soundtags(args) -> None:
+    from .soundtags import run
+
+    cfg = _cfg_from_args(args)
+    run(cfg, listen=args.listen)
+
+
 def cmd_stats(args) -> None:
     cfg = _cfg_from_args(args)
     p = cfg.dataset_dir / "stats.json"
@@ -218,6 +235,16 @@ def main(argv=None) -> None:
     s.add_argument("--dry-run", action="store_true", help="cluster and report only; do not touch the dataset")
     _add_cfg_overrides(s)
     s.set_defaults(func=cmd_speakers)
+
+    s = sub.add_parser("merge-clips", help="join adjacent same-voice lines into longer clips (data/dataset_long)")
+    s.add_argument("--limit-episodes", type=int, default=0, help="only the first N episodes; writes data/dataset_long_smoke/ (smoke tests)")
+    _add_cfg_overrides(s)
+    s.set_defaults(func=cmd_merge_clips)
+
+    s = sub.add_parser("soundtags", help="mine subtitle sound descriptions as style / non-verbal labels and flags")
+    s.add_argument("--listen", type=int, default=4, help="clips per tag in data/dataset/listen_tags/")
+    _add_cfg_overrides(s)
+    s.set_defaults(func=cmd_soundtags)
 
     s = sub.add_parser("stats", help="print stats.json of the built dataset")
     _add_cfg_overrides(s)

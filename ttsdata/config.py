@@ -63,6 +63,17 @@ class Config:
     speaker_device: str = "auto"           # cuda / mps / cpu
     speaker_batch: int = 64                # clips per forward pass (sorted by length, zero-padded)
 
+    # merged utterances (ttsdata merge-clips): consecutive same-voice subtitle lines joined into one longer clip
+    merge_max_gap: float = 0.7             # seconds of pause allowed between two joined lines
+    merge_min_cos: float = 0.4             # ECAPA cosine to the previous line and to the chain centroid (same voice)
+    merge_cross_cluster_cos: float = 0.5   # ... when the two lines sit in different speaker clusters
+    merge_after_question_cos: float = 0.55 # ... when the previous line ends with "?" (often answered by someone else)
+    merge_max_dur: float = 15.0            # longest merged clip
+    merge_max_cer: float = 0.10            # Whisper re-check of the merged clip against the joined subtitle text
+
+    # subtitle sound descriptions (ttsdata soundtags)
+    soundtag_adjacent: float = 1.5         # a vocal event this close before / after a clip is reported as adjacent
+
     @property
     def raw_dir(self) -> Path:
         return self.root / "raw"
