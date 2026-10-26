@@ -11,4 +11,5 @@ scripts/verify_parallel.sh "$WORKERS"
 .venv/bin/ttsdata soundtags                             # subtitle sound descriptions -> style / non-verbal labels, flags
 .venv/bin/ttsdata extend-events                         # clips re-cut to include the adjacent laugh / cry, tagged (data/dataset_events)
 .venv/bin/ttsdata verify-events                         # Whisper + PANNs on the added audio: narrator out, sound confirmed
+.venv/bin/ttsdata emotions                              # coarse emotion labels per clip (emotion2vec+), uncalibrated until rated
 .venv/bin/python scripts/audit_dataset.py --skip-asr   # integrity checks; drop --skip-asr for a Whisper spot-check

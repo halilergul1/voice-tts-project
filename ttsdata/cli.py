@@ -10,6 +10,7 @@
   ttsdata soundtags      [--listen 4]
   ttsdata extend-events  [--limit-episodes N]
   ttsdata verify-events  [--limit N]
+  ttsdata emotions       [--limit N] [--calibration 300] [--ratings ratings.csv] [--eiv]
   ttsdata stats
 """
 from __future__ import annotations
@@ -197,6 +198,15 @@ def cmd_verify_events(args) -> None:
     print(json.dumps(st, ensure_ascii=False, indent=2))
 
 
+def cmd_emotions(args) -> None:
+    from .emotion import run
+
+    cfg = _cfg_from_args(args)
+    st = run(cfg, limit=args.limit, calibration=args.calibration, ratings=args.ratings, eiv=args.eiv,
+             eiv_all=args.eiv_all, require_agreement=args.require_agreement)
+    print(json.dumps(st, ensure_ascii=False, indent=2, default=str))
+
+
 def cmd_stats(args) -> None:
     cfg = _cfg_from_args(args)
     p = cfg.dataset_dir / "stats.json"
@@ -273,6 +283,16 @@ def main(argv=None) -> None:
     s.add_argument("--limit", type=int, default=0, help="only the first N rows (smoke tests)")
     _add_cfg_overrides(s)
     s.set_defaults(func=cmd_verify_events)
+
+    s = sub.add_parser("emotions", help="coarse emotion labels per clip (emotion2vec+), calibration export and scoring")
+    s.add_argument("--limit", type=int, default=0, help="only the first N clips per root (smoke tests)")
+    s.add_argument("--calibration", type=int, default=0, help="export N clips for native raters (data/dataset/calibrate_emotions)")
+    s.add_argument("--ratings", default=None, help="score a filled ratings.csv instead of labelling")
+    s.add_argument("--eiv", action="store_true", help="also score the calibration clips with EmpathicInsight-Voice (experimental)")
+    s.add_argument("--eiv-all", action="store_true", help="score every clip with EmpathicInsight-Voice (slow on CPU)")
+    s.add_argument("--require-agreement", action="store_true", help="label only where both scorers agree (needs --eiv-all)")
+    _add_cfg_overrides(s)
+    s.set_defaults(func=cmd_emotions)
 
     s = sub.add_parser("stats", help="print stats.json of the built dataset")
     _add_cfg_overrides(s)

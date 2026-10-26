@@ -24,6 +24,7 @@ dev = ["pytest>=8"]
 cuda = ["faster-whisper>=1.1"]   # Linux / NVIDIA: pip install -e ".[cuda]"
 speakers = ["speechbrain>=1.0"]  # ttsdata speakers: ECAPA-TDNN speaker embeddings (CPU / MPS / CUDA)
 events = ["panns-inference>=0.1.1"]  # ttsdata verify-events: AudioSet tagger (laughter, crying, speech) on event clips
+emotions = ["funasr>=1.2", "modelscope>=1.20"]  # ttsdata emotions: emotion2vec+ large (EmpathicInsight needs transformers)
 
 [project.scripts]
 ttsdata = "ttsdata.cli:main"

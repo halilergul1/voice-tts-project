@@ -77,3 +77,15 @@ def oversample(rows: list[dict], repeat: int, max_share: float, seed: int = 0) -
     extra = [dict(x) for x in lab for _ in range(r - 1)]
     random.Random(seed).shuffle(extra)
     return list(rows) + extra
+
+
+def auto_styles(rows: list[dict], min_conf: float, per_class: dict[str, float] | None = None) -> dict[str, list[str]]:
+    """Styles from automatic coarse emotion labels (emotions.jsonl rows): angry / sad / happy above a confidence
+    (per class when given); neutral is not a style, it is the absence of a prefix."""
+    per_class = per_class or {}
+    out = {}
+    for r in rows:
+        c = r.get("coarse")
+        if c in ("angry", "sad", "happy") and float(r.get("conf") or 0.0) >= per_class.get(c, min_conf):
+            out[r["id"]] = [c]
+    return out

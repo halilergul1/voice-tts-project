@@ -50,3 +50,12 @@ def test_oversample_repeats_labelled_rows_under_a_cap():
     n_lab = sum(1 for r in out if r["labelled"])
     assert n_lab <= 0.4 * len(out) + 1e-9 and n_lab >= 50
     assert [r["id"] for r in oversample(rows, repeat=1, max_share=0.4, seed=0)] == [r["id"] for r in rows]
+
+
+def test_auto_styles_from_emotion_labels():
+    from ttsdata.labels import auto_styles
+    rows = [{"id": "a", "coarse": "angry", "conf": 0.9}, {"id": "b", "coarse": "neutral", "conf": 0.95},
+            {"id": "c", "coarse": "sad", "conf": 0.5}, {"id": "d", "coarse": None, "conf": 0.9}]
+    assert auto_styles(rows, min_conf=0.6) == {"a": ["angry"]}                    # neutral is the absence of a prefix
+    assert auto_styles(rows, min_conf=0.6, per_class={"sad": 0.4}) == {"a": ["angry"], "c": ["sad"]}
+    assert auto_styles(rows, min_conf=0.95) == {}

@@ -83,6 +83,12 @@ class Config:
     event_tag_prob: float = 0.2            # the tag's own AudioSet class must reach this somewhere in the extension
     event_accept_clean: bool = True        # a clean extension (no words, no speech-like audio) counts as verified
 
+    # coarse emotion labels (ttsdata emotions): emotion2vec+ (FunASR) per clip, calibrated against native ratings
+    emotion_model: str = "iic/emotion2vec_plus_large"
+    emotion_min_conf: float = 0.6          # top-class probability a clip needs to get a coarse label
+    emotion_min_margin: float = 0.2        # ... and its lead over the runner-up coarse class
+    emotion_device: str = "auto"           # cuda / cpu (FunASR has no MPS path)
+
     @property
     def raw_dir(self) -> Path:
         return self.root / "raw"

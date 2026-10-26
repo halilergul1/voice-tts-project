@@ -29,7 +29,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.labels import EVENT_TAG, allowed_labels, labelled_text, oversample  # noqa: E402
+from ttsdata.labels import EVENT_TAG, allowed_labels, auto_styles, labelled_text, oversample  # noqa: E402
 from ttsdata.manifest import (combine_events, combine_units, manifest_row, pair_references, replay_text,  # noqa: E402
                               stage_filter, tier_funnel, validate_row)
 
@@ -117,6 +117,9 @@ def main() -> int:
     ap.add_argument("--min-tag", type=int, default=300, help="instances an event tag needs in the slice to be written")
     ap.add_argument("--label-repeat", type=int, default=3, help="stage 2: labelled rows repeated this many times")
     ap.add_argument("--label-max-share", type=float, default=0.4, help="stage 2: labelled rows at most this share of train")
+    ap.add_argument("--auto-styles", action="store_true", help="stage 2: angry / sad / happy prefixes from ttsdata emotions (emotions.jsonl)")
+    ap.add_argument("--auto-min-conf", type=float, default=0.6, help="confidence a clip needs for an automatic style")
+    ap.add_argument("--auto-conf", default="", help="per-class overrides, e.g. angry=0.8,sad=0.7 (from the calibration report)")
     ap.add_argument("--max-hours", type=float, default=60.0)
     ap.add_argument("--max-series-share", type=float, default=0.4)
     ap.add_argument("--ref-ratio", type=float, default=0.4)
@@ -191,9 +194,26 @@ def main() -> int:
                "dataset_long": os.path.relpath(long_root / a.long_wavs, out) if long_root else None,
                "dataset_events": os.path.relpath(events_root / a.events_wavs, out) if events_root else None}
 
-    # labels (stage 2): styles from the clip's (or its base's) subtitle label, tags from event clips and merged pauses
+    # labels (stage 2): styles from the clip's (or its base's) subtitle label and, with --auto-styles, from the
+    # automatic emotion label; tags from event clips and merged pauses
+    auto: dict[str, list[str]] = {}
+    if a.stage >= 2 and a.auto_styles:
+        per_class = {k: float(v) for k, v in (kv.split("=") for kv in a.auto_conf.split(",") if kv.strip())}
+        em_rows = [r for p in ([root] + ([long_root] if long_root else [])) for r in load_jsonl(p / "emotions.jsonl")]
+        if not em_rows:
+            raise SystemExit("--auto-styles needs emotions.jsonl: run ttsdata emotions first")
+        auto = auto_styles(em_rows, a.auto_min_conf, per_class)
+        print(f"auto styles: {len(auto)} clips above confidence ({a.auto_min_conf}{', ' + a.auto_conf if a.auto_conf else ''})")
+
     def tags_of(r):
-        return (soundtags or {}).get(r.get("base") or r["id"])
+        key = r.get("base") or r["id"]
+        t = (soundtags or {}).get(key)
+        extra = auto.get(key, [])
+        if not extra:
+            return t
+        merged = dict(t) if t else {"style": [], "flags": [], "events": []}
+        merged["style"] = sorted(set(merged.get("style", [])) | set(extra))
+        return merged
 
     styles_seen = [s for r in slice_rows for s in (tags_of(r) or {}).get("style", [])]
     tags_seen = [r["tag"] for r in slice_rows if r["root"] == "dataset_events"]
@@ -292,6 +312,9 @@ def main() -> int:
                   "| label | kind | in slice | written |", "|---|---|---|---|"]
         lines += [f"| {s} | style | {n} | {'yes' if s in styles_ok else 'no'} |" for s, n in cs.most_common()]
         lines += [f"| {t} | event | {n} | {'yes' if t in events_ok else 'no'} |" for t, n in ct.most_common()]
+        if a.auto_styles:
+            lines += ["", f"- automatic styles (ttsdata emotions, confidence >= {a.auto_min_conf}"
+                      f"{', ' + a.auto_conf if a.auto_conf else ''}): {sum(1 for r in slice_rows if auto.get(r.get('base') or r['id']))} clips in the slice"]
         lines += ["", f"- labelled rows: {n_labelled} before oversampling; repeat factor used {repeat_used} "
                   f"(requested {a.label_repeat}, cap {a.label_max_share:.0%} of train); event evidence accepted: {a.event_evidence}"
                   + (" + unconfirmed" if a.include_unconfirmed else "")]

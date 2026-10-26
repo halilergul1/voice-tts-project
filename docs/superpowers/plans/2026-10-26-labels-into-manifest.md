@@ -181,7 +181,15 @@ spoken, which is why a clean extension now counts as evidence (`event_accept_cle
   speaker is still unverified (rarely another person). The manifest (Task 4) takes `verified` rows by default,
   can restrict to evidence levels, and takes `unconfirmed` rows only on an explicit flag.
 
-### Task 6b: Classifier layer and calibration (from the report)
+### Task 6b: Classifier layer and calibration — built 2026-10-26, calibration pending the user's ratings
+
+`ttsdata emotions` (`ttsdata/emotion.py`, `ttsdata/emotion_eiv.py`): emotion2vec+ large per clip with the
+confidence / margin rule, EmpathicInsight-Voice optional (its heads are 295 MB each, only the 15 behind the coarse
+mapping plus valence / arousal are loaded; the MLP is rebuilt from the checkpoints with an assumed GELU, so it is
+experimental until the calibration says otherwise). `--calibration N` exports a balanced rating set, `--ratings`
+scores it and suggests per-class thresholds; the manifest consumes the labels with `--auto-styles`.
+Gender per speaker cluster (pitch + classifier) is not built; the Data-Speech route from the report remains open.
+
 
 Out of scope here; listed so the order is clear: emotion2vec+ / EmpathicInsight-Voice coarse emotions on every clip, a laughter / event detector, gender per speaker cluster, 300–500 clips rated by native listeners, agreement measured before any classifier label becomes a prefix. Subtitle labels serve as the free check on the classifiers.
 
