@@ -188,6 +188,14 @@ confidence / margin rule, EmpathicInsight-Voice optional (its heads are 295 MB e
 mapping plus valence / arousal are loaded; the MLP is rebuilt from the checkpoints with an assumed GELU, so it is
 experimental until the calibration says otherwise). `--calibration N` exports a balanced rating set, `--ratings`
 scores it and suggests per-class thresholds; the manifest consumes the labels with `--auto-styles`.
+Local run (21,886 clips, emotion2vec+ at 17 clips/s on the Mac CPU): single clips labelled neutral 31.9 %, happy
+17.2 %, sad 12.6 %, angry 6.8 %, unlabelled 31.4 %; merged clips happy 27.4 %, neutral 24.2 %, sad 14.5 %, angry
+9.5 %. Calibration set exported: `data/dataset/calibrate_emotions/ratings.csv`, 300 clips, 60 per predicted class
+(incl. unlabelled), spread over the series, scored by both models. Before any rating: EmpathicInsight calls 128 of
+the 300 angry and 6 sad and agrees with emotion2vec+ on 43 % of the clips emotion2vec+ labelled, so its mapping
+thresholds (intensity 1.0, margin 0.3) are suspect until the ratings say otherwise. Scaled to the catalogue at the
+local rates, angry alone would be ~70,000 clips, far above the 50-clip prefix threshold; precision, not volume, is
+the question the ratings answer.
 Gender per speaker cluster (pitch + classifier) is not built; the Data-Speech route from the report remains open.
 
 

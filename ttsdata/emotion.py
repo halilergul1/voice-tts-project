@@ -83,7 +83,9 @@ def calibration_sample(rows: list[dict], n: int, seed: int = 0) -> list[str]:
                 picked.append(lst.pop())
                 taken += 1
             k += 1
-    return picked[:n]
+    picked = picked[:n]
+    rng.shuffle(picked)  # interleave the classes: a block of one predicted class would bias the rater
+    return picked
 
 
 def parse_ratings(text: str) -> dict[str, str]:

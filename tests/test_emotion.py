@@ -42,6 +42,7 @@ def test_calibration_sample_is_stratified_and_deterministic():
     assert by_lab == {"angry": 10, "sad": 10, "happy": 10, "neutral": 10, "None": 10}
     assert sum(1 for c in picked if c.startswith("A_")) == 25
     assert picked == calibration_sample(rows, n=50, seed=1)
+    assert len({c.split("_")[1] for c in picked[:10]}) >= 3   # mixed order: a rater never sees one class in a block
     assert len(calibration_sample(rows[:7], n=50, seed=1)) == 7
 
 
