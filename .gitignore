@@ -1,0 +1,16 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+data/
+voice_datasets/*.webm*
+voice_datasets/*.wav
+notebooks/kanald_downloads/**/*.mp4
+notebooks/kanald_downloads/**/*.m4a
+.venv-*/
+.superpowers/
+.pytest_cache/
+voice_datasets/
+notebooks/kanald_downloads/
+*.part

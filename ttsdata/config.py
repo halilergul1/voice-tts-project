@@ -1,0 +1,76 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass
+class Config:
+    root: Path = Path("data")
+    sample_rate: int = 24000
+
+    # segment cutting: a generous window around each cue; exact edges come from word alignment later
+    window_pad: float = 1.00
+    trim_margin_before: float = 0.12
+    trim_margin_after: float = 0.20
+    merge_gap: float = 0.60       # max silence between two cues joined by "..." continuation
+    merge_gap_comma: float = 0.30 # max gap when previous cue ends with a comma / no punctuation
+    max_merged_dur: float = 15.0
+
+    # VAD (cheap no-speech detection on the window; not used for trimming)
+    vad_threshold: float = 0.5
+
+    # dataset filters
+    min_dur: float = 1.0
+    max_dur: float = 15.0
+    min_speech_ratio: float = 0.40  # VAD speech seconds in the window / cue length; mostly-music cues skip ASR
+    min_chars: int = 3
+    min_cps: float = 2.5          # characters per second (text / audio duration); slow emotional lines sit ~3
+    max_cps: float = 30.0
+    max_cer: float = 0.20         # ASR transcript (aligned span) vs subtitle text
+    min_word_prob: float = 0.0    # mean Whisper word probability over the span (0 disables)
+    max_no_speech_prob: float = 0.6
+    require_asr: bool = True
+
+    # edge snapping at build time (VAD on the trimmed clip): Whisper dates the first word from the end of the
+    # preceding silence, which leaves up to ~1 s of lead-in; cap non-speech at the edges to these values
+    lead_silence_max: float = 0.15
+    trail_silence_max: float = 0.25
+    snap_margin: float = 0.10
+
+    # output
+    target_lufs: float = -20.0
+    peak_ceiling: float = 0.99
+    val_fraction: float = 0.02
+    seed: int = 1234
+
+    # ASR backend: "auto" picks mlx on Apple Silicon, faster-whisper (CTranslate2, CUDA/CPU) elsewhere
+    whisper_backend: str = "auto"
+    whisper_model: str = "auto"      # auto -> mlx-community/whisper-large-v3-turbo | deepdml/faster-whisper-large-v3-turbo-ct2
+    whisper_device: str = "auto"     # faster-whisper only: cuda / cpu / auto
+    whisper_compute: str = "auto"    # faster-whisper only: float16 / int8_float16 / int8 / auto
+    # packed inference: several clips concatenated (with silence gaps) into one <=30 s Whisper window,
+    # then words are handed back to their clip by time. 0 disables (one Whisper call per clip).
+    pack_seconds: float = 28.0
+    pack_gap: float = 1.0
+    pack_slack: float = 0.5          # words up to this far outside every clip still go to the nearest clip (gap/2)
+
+    # speaker ids (ttsdata speakers): one embedding per clip, agglomerative clustering (average linkage, cosine
+    # distance) within each episode, then episode clusters are merged across the series by centroid distance.
+    speaker_model: str = "speechbrain/spkrec-ecapa-voxceleb"
+    speaker_threshold: float = 0.70        # avg cosine distance between clips of one cluster, within an episode (hint purity knee)
+    speaker_merge_threshold: float = 0.55  # cosine distance between episode-cluster centroids across the series (conservative)
+    speaker_device: str = "auto"           # cuda / mps / cpu
+    speaker_batch: int = 64                # clips per forward pass (sorted by length, zero-padded)
+
+    @property
+    def raw_dir(self) -> Path:
+        return self.root / "raw"
+
+    @property
+    def seg_dir(self) -> Path:
+        return self.root / "segments"
+
+    @property
+    def dataset_dir(self) -> Path:
+        return self.root / "dataset"
