@@ -357,11 +357,11 @@ def attach(clip: dict, events: list[Event], adjacent: float = 1.5, gap_tol: floa
         if gap is not None:
             item.update(where=f"gap:{gap}", t=round(max(0.0, s - a), 1), in_clip=True,
                         char=ends[gap] if gap < len(ends) else None)
-        elif ov >= min(0.3, 0.5 * (e - s)):
+        elif a <= mid <= b and ov >= min(0.3, 0.5 * (e - s)):  # most of the sound falls inside the clip
             item.update(where="inside", t=round(min(max(0.0, s - a), b - a), 1), in_clip=True)
         elif mid < a and a - e <= adjacent:  # mostly before the clip (may graze its first moments)
             item.update(where="before", dt=round(max(0.0, a - e), 1))
-        elif mid > b and s - b <= adjacent:
+        elif mid > b and s - b <= adjacent:  # mostly after it (a laugh cue that starts on the last word)
             item.update(where="after", dt=round(max(0.0, s - b), 1))
         else:
             continue

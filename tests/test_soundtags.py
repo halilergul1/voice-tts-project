@@ -208,3 +208,12 @@ def test_discrete_sounds_are_events_in_any_verb_form():
         assert classify(d, position="lead").nominal, d
     assert hint_style("Öksürüyor") == (None, [], [])
     assert not classify("Gülüyor", position="lead").nominal  # laughing while talking is a delivery
+
+
+def test_attach_inside_needs_the_cue_midpoint_in_the_clip():
+    clip = {"id": "c", "orig_start": 6116.9, "orig_end": 6118.5, "speaker_hint": None}
+    # the real false positive: a 1.9 s laugh cue that only grazes the clip's last 0.8 s
+    t = attach(clip, [E(6117.7, 6119.6, "vocal", "laugh")])
+    assert [(x["where"], x["in_clip"], x["dt"]) for x in t["events"]] == [("after", False, 0.0)]
+    t = attach(clip, [E(6116.6, 6117.6, "vocal", "laugh")])  # mostly inside: cue midpoint 6117.1 is in the clip
+    assert [(x["where"], x["in_clip"]) for x in t["events"]] == [("inside", True)]
