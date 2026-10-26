@@ -8,6 +8,7 @@
   ttsdata speakers       [--sweep 0.4,0.5,0.6] [--dry-run]
   ttsdata merge-clips    [--limit-episodes N]
   ttsdata soundtags      [--listen 4]
+  ttsdata extend-events  [--limit-episodes N]
   ttsdata stats
 """
 from __future__ import annotations
@@ -179,6 +180,14 @@ def cmd_soundtags(args) -> None:
     run(cfg, listen=args.listen)
 
 
+def cmd_extend_events(args) -> None:
+    from .eventclips import run
+
+    cfg = _cfg_from_args(args)
+    st = run(cfg, limit_episodes=args.limit_episodes)
+    print(json.dumps(st, ensure_ascii=False, indent=2))
+
+
 def cmd_stats(args) -> None:
     cfg = _cfg_from_args(args)
     p = cfg.dataset_dir / "stats.json"
@@ -245,6 +254,11 @@ def main(argv=None) -> None:
     s.add_argument("--listen", type=int, default=4, help="clips per tag in data/dataset/listen_tags/")
     _add_cfg_overrides(s)
     s.set_defaults(func=cmd_soundtags)
+
+    s = sub.add_parser("extend-events", help="re-cut clips to include the adjacent laugh / cry / sigh, tagged in the text (data/dataset_events)")
+    s.add_argument("--limit-episodes", type=int, default=0, help="only the first N episodes; writes data/dataset_events_smoke/")
+    _add_cfg_overrides(s)
+    s.set_defaults(func=cmd_extend_events)
 
     s = sub.add_parser("stats", help="print stats.json of the built dataset")
     _add_cfg_overrides(s)

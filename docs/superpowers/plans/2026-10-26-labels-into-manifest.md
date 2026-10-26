@@ -125,7 +125,20 @@ roots; passes with a warning when `ttsdata soundtags` has not run. Local: 19 cli
 - [ ] `tier_report.md` adds a label table: clips per style / tag in the slice, which were written, which fell under the thresholds.
 - [ ] Build both manifests from the local data; read 30 labelled lines by eye; listen to 10 of them.
 
-### Task 5: Event-extended clips (`ttsdata extend-events`)
+### Task 5: Event-extended clips (`ttsdata extend-events`) — DONE 2026-10-26
+
+Implemented in `ttsdata/eventclips.py` (+ `ttsdata/labels.py` for the tag vocabulary). Local run, 19 episodes:
+219 adjacent events → 135 candidates (84 lost to overlapping neighbours, a 15 s cap or `who_match: false`) → 90 kept
+after the Whisper re-check (26 high CER on the re-cut, 17 words in the extension, 2 unaligned): laugh 53, breath 15,
+cry 10, throat_clear 3, cough 2, moan 2, shout 2, sigh 2, yawn 1; 0.14 h; 89 of 90 with `who_match: null`.
+Scaled to the TRT catalogue (1,064 episodes): roughly 3,000 tagged laughs, 800 breaths, 500 cries, i.e. laugh and
+breath clear the 300-instance bar, cry is borderline, the rest stay metadata. Text columns stay plain; the tagged
+text lives in `text_tagged` / `normalized_text_tagged` and the csv files.
+
+Open: `verified` is false everywhere until a sound-event detector runs (Task 6); who made the sound is unknown for
+nearly every event, so Stage 2 should prefer `before`/`after` events whose detector confirmation also matches the
+clip's speaker embedding, or accept the noise knowingly.
+
 
 The 1.5 s `before` / `after` events are the largest pool of real Turkish laughs, cries and sighs next to their speaker's line, but the clip edges cut them off.
 
@@ -143,7 +156,7 @@ Out of scope here; listed so the order is clear: emotion2vec+ / EmpathicInsight-
 
 ## Order of work
 
-1. Task 2 (exclusion flags) and Task 1 (merged clips in the manifest): both help Stage 1 directly.
-2. Task 5 (event-extended clips): the volume source for `[gülme]`, `[ağlama]`, `[nefes]` and friends.
+1. ~~Task 2 (exclusion flags) and Task 1 (merged clips in the manifest)~~ done.
+2. ~~Task 5 (event-extended clips)~~ done; the manifest side (extended clip replaces its base) lands with Task 4.
 3. Task 6 (classifiers + native calibration): the source for angry / sad / happy styles.
 4. Task 3 and Task 4 (label text, Stage 2 manifest): once 2 and 3 have produced labels above the thresholds.

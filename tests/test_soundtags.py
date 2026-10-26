@@ -217,3 +217,9 @@ def test_attach_inside_needs_the_cue_midpoint_in_the_clip():
     assert [(x["where"], x["in_clip"], x["dt"]) for x in t["events"]] == [("after", False, 0.0)]
     t = attach(clip, [E(6116.6, 6117.6, "vocal", "laugh")])  # mostly inside: cue midpoint 6117.1 is in the clip
     assert [(x["where"], x["in_clip"]) for x in t["events"]] == [("inside", True)]
+
+
+def test_body_part_adverbs_are_not_names():
+    for d in ("Burundan nefes veriyor", "Ağzından nefes alıyor", "Burnundan soluyor"):
+        c = classify(d)
+        assert (c.kind, c.tag, c.who) == ("vocal", "breath", None), d

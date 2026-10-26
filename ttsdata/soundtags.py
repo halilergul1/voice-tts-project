@@ -94,7 +94,8 @@ UNINTELLIGIBLE_RE = re.compile(r"anlaşılma(yan|z)|anlaşılmıyor|duyulmuyor|d
 OVERLAP_RE = re.compile(r"üst üste|konuşmalar|kalabalık|uğultu|gürültü|hep bir ağızdan|bağrışmalar|tezahürat|alkış")
 BACKGROUND_RE = re.compile(r"^(fonda|uzaktan|arkada|dışarıdan|içeriden)\b")
 ADVERB_WORDS = {"derin", "hızlı", "hızla", "uzun", "kısa", "zorla", "derince", "sessizce", "yavaşça", "hafifçe", "içten",
-                "acı", "kesik", "kesik kesik", "sürekli", "yine", "tekrar", "birden", "aniden", "yüksek", "alçak"}
+                "acı", "kesik", "kesik kesik", "sürekli", "yine", "tekrar", "birden", "aniden", "yüksek", "alçak",
+                "burundan", "burnundan", "ağzından", "ağızdan", "göğsünden", "zor", "rahat", "sık", "sık sık"}
 ROLE_WORDS = {"ses", "dış", "iç", "ve"}
 _TOKEN_RE = re.compile(r"[\wçğıöşüâîûÇĞİÖŞÜÂÎÛ'*]+", re.UNICODE)
 

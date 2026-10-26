@@ -74,6 +74,11 @@ class Config:
     # subtitle sound descriptions (ttsdata soundtags)
     soundtag_adjacent: float = 1.5         # a vocal event this close before / after a clip is reported as adjacent
 
+    # event-extended clips (ttsdata extend-events): the clip re-cut to include an adjacent laugh / cry / sigh
+    event_pad: float = 0.2                 # seconds of margin around the event cue
+    event_max_dur: float = 15.0            # longest extended clip
+    event_max_bleed: int = 1               # extra Whisper tokens tolerated on the extended side (a laugh is not words)
+
     @property
     def raw_dir(self) -> Path:
         return self.root / "raw"
