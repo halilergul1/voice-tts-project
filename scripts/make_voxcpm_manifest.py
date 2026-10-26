@@ -2,6 +2,8 @@
 
 Strict tier (see ttsdata.manifest.tier_funnel), capped at --max-hours with a per-series share cap, 40 % of rows
 paired with a same-speaker reference clip, optional replay rows (FLEURS-tr) with dataset_id 1, every row validated.
+Merged clips from `ttsdata merge-clips` (--long-root) replace their member clips when they pass the tier; clips
+flagged by `ttsdata soundtags` as overlapping / foreign / unintelligible / censored / TV-voice are dropped.
 Also writes <out>/tier_report.md and data/eval/corpus_heldout.txt (val-set sentences for scripts/eval_tts.py).
 
 usage: .venv/bin/python scripts/make_voxcpm_manifest.py --root data/dataset --out data/voxcpm --wavs wavs_clean \
@@ -23,7 +25,8 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.manifest import manifest_row, pair_references, replay_text, tier_funnel, validate_row  # noqa: E402
+from ttsdata.manifest import (combine_units, manifest_row, pair_references, replay_text, tier_funnel,  # noqa: E402
+                              validate_row)
 
 
 def fetch_fleurs(out_dir: Path, min_dur: float = 3.0, max_dur: float = 20.0, target_lufs: float = -20.0) -> int:
@@ -98,6 +101,9 @@ def main() -> int:
     ap.add_argument("--root", default="data/dataset")
     ap.add_argument("--out", default="data/voxcpm")
     ap.add_argument("--wavs", default="wavs_clean")
+    ap.add_argument("--long-root", default="data/dataset_long", help="merged clips (ttsdata merge-clips); '' to skip")
+    ap.add_argument("--long-wavs", default="wavs_clean")
+    ap.add_argument("--stage", type=int, default=1, choices=(1, 2), help="2 also drops clips under a laugh track")
     ap.add_argument("--max-hours", type=float, default=60.0)
     ap.add_argument("--max-series-share", type=float, default=0.4)
     ap.add_argument("--ref-ratio", type=float, default=0.4)
@@ -116,30 +122,53 @@ def main() -> int:
         n = fetch_fleurs(Path(a.replay_dir))
         print(f"fleurs: {n} new clips in {a.replay_dir}")
 
+    def load_jsonl(p):
+        return [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()] if p.exists() else []
+
+    def with_wavs(rs, wav_dir, what):
+        present = {p.stem for p in wav_dir.glob("*.wav")} if wav_dir.exists() else set()
+        kept = [r for r in rs if r["id"] in present]
+        if len(kept) < len(rs):
+            print(f"[warn] {len(rs) - len(kept)} {what} have no wav in {wav_dir}; dropped")
+        return kept
+
     qfile = root / "quality.jsonl"
     if not qfile.exists():
         raise SystemExit(f"{qfile} missing: run scripts/audit_quality.py first")
-    quality = {q["id"]: q for q in (json.loads(l) for l in qfile.read_text(encoding="utf-8").splitlines() if l.strip())}
-    rows = [json.loads(l) for l in (root / "metadata.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    quality = {q["id"]: q for q in load_jsonl(qfile)}
     wav_dir = root / a.wavs
-    present = {p.stem for p in wav_dir.glob("*.wav")} if wav_dir.exists() else set()
-    missing = [r for r in rows if r["id"] not in present]
-    rows = [r for r in rows if r["id"] in present]
-    if missing:
-        print(f"[warn] {len(missing)} clips have no wav in {wav_dir}; dropped")
-
-    funnel = tier_funnel(rows, quality, max_cer=a.max_cer, min_cluster=a.min_cluster)
+    singles = with_wavs(load_jsonl(root / "metadata.jsonl"), wav_dir, "clips")
+    long_root = Path(a.long_root) if a.long_root else None
+    merged = []
+    if long_root and (long_root / "metadata.jsonl").exists():
+        if not (long_root / "quality.jsonl").exists():
+            raise SystemExit(f"{long_root / 'quality.jsonl'} missing: run scripts/audit_quality.py --root {long_root}")
+        quality.update({q["id"]: q for q in load_jsonl(long_root / "quality.jsonl")})
+        merged = with_wavs(load_jsonl(long_root / "metadata.jsonl"), long_root / a.long_wavs, "merged clips")
+    else:
+        print("[warn] no merged clips (run ttsdata merge-clips, or pass --long-root)")
+    soundtags = None
+    tag_files = [p / "soundtags.jsonl" for p in ([root] + ([long_root] if long_root else [])) if (p / "soundtags.jsonl").exists()]
+    if tag_files:
+        soundtags = {t["id"]: t for p in tag_files for t in load_jsonl(p)}
+    else:
+        print("[warn] no soundtags.jsonl: run ttsdata soundtags to drop overlapping / foreign / censored clips")
+    tier_kw = dict(max_cer=a.max_cer, min_cluster=a.min_cluster, soundtags=soundtags, stage=a.stage)
+    rows = combine_units(singles, merged, quality, **tier_kw)
+    funnel = tier_funnel(rows, quality, **tier_kw)
     tier = funnel[-1][1]
     slice_rows = cap_hours(tier, a.max_hours, a.max_series_share, a.seed)
     train_rows = [r for r in slice_rows if r.get("split") != "val"]
     val_rows = [r for r in slice_rows if r.get("split") == "val"]
     pairs = {**pair_references(train_rows, a.ref_ratio, a.seed), **pair_references(val_rows, a.ref_ratio, a.seed)}
     by_id = {r["id"]: r for r in slice_rows}
-    audio_root = os.path.relpath(wav_dir, out)
+    root_of = {"dataset": os.path.relpath(wav_dir, out),
+               "dataset_long": os.path.relpath(long_root / a.long_wavs, out) if long_root else None}
 
     train, val = [], []
     for r in slice_rows:
-        d = manifest_row(r, by_id.get(pairs.get(r["id"])), audio_root, dataset_id=0)
+        ref = by_id.get(pairs.get(r["id"]))
+        d = manifest_row(r, ref, root_of[r["root"]], dataset_id=0, ref_audio_root=root_of[ref["root"]] if ref else None)
         (val if r.get("split") == "val" else train).append(d)
 
     replay_rows = []
@@ -184,10 +213,17 @@ def main() -> int:
     def hrs(rs):
         return sum(r["duration"] for r in rs) / 3600
 
-    lines = [f"# VoxCPM manifest tier report ({a.wavs}/)", "", f"source rows: {len(rows)} ({hrs(rows):.2f} h)", "",
+    n_merged_slice = sum(1 for r in slice_rows if r["root"] == "dataset_long")
+    covered = sum(len(r["members"]) for r in rows if r["root"] == "dataset_long")
+    lines = [f"# VoxCPM manifest tier report ({a.wavs}/, stage {a.stage})", "",
+             f"single clips: {len(singles)} ({hrs(singles):.2f} h); merged clips: {len(merged)} ({hrs(merged):.2f} h), "
+             f"of which {sum(1 for r in rows if r['root'] == 'dataset_long')} pass the tier and replace {covered} single clips",
+             f"sound flags: {'applied (' + str(len(soundtags)) + ' tagged clips)' if soundtags is not None else 'not available'}",
+             "", f"units entering the funnel: {len(rows)} ({hrs(rows):.2f} h)", "",
              "| gate | clips | hours |", "|---|---|---|"]
     lines += [f"| {name} | {len(rs)} | {hrs(rs):.2f} |" for name, rs in funnel]
-    lines += ["", f"slice (max {a.max_hours} h, series cap {a.max_series_share:.0%}): {len(slice_rows)} clips, {hrs(slice_rows):.2f} h", "",
+    lines += ["", f"slice (max {a.max_hours} h, series cap {a.max_series_share:.0%}): {len(slice_rows)} clips, {hrs(slice_rows):.2f} h, "
+              f"of which {n_merged_slice} merged ({hrs([r for r in slice_rows if r['root'] == 'dataset_long']):.2f} h)", "",
               "| series | clips | hours | speakers |", "|---|---|---|---|"]
     per = defaultdict(list)
     for r in slice_rows:

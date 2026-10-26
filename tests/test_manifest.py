@@ -1,4 +1,5 @@
-from ttsdata.manifest import manifest_row, pair_references, replay_text, select_tier, validate_row
+from ttsdata.manifest import (EXCLUDE_FLAGS, combine_units, manifest_row, pair_references, replay_text, select_tier,
+                              validate_row)
 
 
 def R(i, dur=4.0, cer=0.0, spk="s_spk00", size=20, hint=None, text="Merhaba."):
@@ -67,3 +68,38 @@ def test_replay_text_normalises_or_rejects():
     assert replay_text("Merhaba dünya.") == "Merhaba dünya."
     assert replay_text("(Gülüşmeler) Merhaba.") is None
     assert replay_text("   ") is None
+
+
+def test_combine_units_prefers_merged_and_never_duplicates():
+    singles = [R(0), R(1), R(2)]
+    merged = {"id": "c0_x2", "audio_file": "wavs/c0_x2.wav", "duration": 7.5, "cer": 0.02, "speaker_id": "s_spk00",
+              "speaker_cluster_size": 20, "speaker_hint": None, "normalized_text": "Merhaba. Merhaba.", "split": "train",
+              "members": ["c0", "c1"]}
+    q = {f"c{i}": Q(i) for i in range(3)}
+    q["c0_x2"] = {"id": "c0_x2", "music_db": None, "trail_sil": 0.1, "text_flags": []}
+    units = combine_units(singles, [merged], q)
+    assert sorted(u["id"] for u in units) == ["c0_x2", "c2"]
+    assert {u["id"]: u["root"] for u in units} == {"c0_x2": "dataset_long", "c2": "dataset"}
+    bad = {**merged, "cer": 0.2}  # a merge the tier rejects: its members stay usable as singles
+    assert sorted(u["id"] for u in combine_units(singles, [bad], q)) == ["c0", "c1", "c2"]
+    assert sorted(u["id"] for u in combine_units(singles, [], q)) == ["c0", "c1", "c2"]
+
+
+def test_sound_flags_gate_drops_noisy_clips():
+    rows, q = [R(0)], {"c0": Q(0)}
+    for flag in EXCLUDE_FLAGS:
+        assert select_tier(rows, q, soundtags={"c0": {"flags": [flag]}}) == [], flag
+    assert EXCLUDE_FLAGS == {"overlap", "foreign_speech", "unintelligible", "censored", "channel"}
+    for flag in ("music", "sfx", "silence"):
+        assert select_tier(rows, q, soundtags={"c0": {"flags": [flag]}}) != [], flag
+    assert select_tier(rows, q, soundtags={"c0": {"flags": ["bg_laugh"]}}) != []           # stage 1: fine
+    assert select_tier(rows, q, soundtags={"c0": {"flags": ["bg_laugh"]}}, stage=2) == []  # stage 2: a laugh track would mislabel [gülme]
+    assert select_tier(rows, q, soundtags={}) != []       # no tags for the row: nothing to exclude
+    assert select_tier(rows, q, soundtags=None) != []     # soundtags not run: gate passes
+
+
+def test_manifest_row_resolves_the_reference_by_its_own_root():
+    merged_ref = {**R(1), "id": "c1_x2", "duration": 6.0}
+    d = manifest_row(R(0), merged_ref, audio_root="../dataset/wavs_clean", ref_audio_root="../dataset_long/wavs_clean")
+    assert d["audio"] == "../dataset/wavs_clean/c0.wav" and d["ref_audio"] == "../dataset_long/wavs_clean/c1_x2.wav"
+    assert d["ref_duration"] == 6.0 and validate_row(d) == []

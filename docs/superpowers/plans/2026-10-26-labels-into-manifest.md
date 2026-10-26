@@ -76,7 +76,13 @@ Vocabulary (Turkish text written into the manifest):
 
 ---
 
-### Task 1: Merged clips in the manifest
+### Task 1: Merged clips in the manifest — DONE 2026-10-26
+
+Implemented as `combine_units` in `ttsdata/manifest.py` and `--long-root` / `--long-wavs` on the manifest script.
+Local result (original wavs, no separation on the merged root yet): tier 5.53 h → 6.90 h (+25 %); 1,428 merged clips
+in the slice replace 3,251 short clips; references may point at merged clips (own root). The local run used
+`--long-wavs wavs`; the server runs `separate_vocals.py --root data/dataset_long` first and uses `wavs_clean`.
+
 
 **Files:** Modify `scripts/make_voxcpm_manifest.py`; Modify `ttsdata/manifest.py`; Test `tests/test_manifest.py`.
 
@@ -88,7 +94,11 @@ Vocabulary (Turkish text written into the manifest):
 - [ ] Implement; run `audit_quality.py --root data/dataset_long` and `separate_vocals.py --root data/dataset_long` first (same tools, same layout).
 - [ ] Rebuild the local manifest; `tier_report.md` shows hours from merged rows separately. Expected on the 15 h set: the ≥ 3 s pool grows by the merger's reported gain.
 
-### Task 2: Exclusion flags
+### Task 2: Exclusion flags — DONE 2026-10-26
+
+`sound_flags` gate in `tier_funnel` (`EXCLUDE_FLAGS`; stage 2 adds `bg_laugh`), read from `soundtags.jsonl` of both
+roots; passes with a warning when `ttsdata soundtags` has not run. Local: 19 clips dropped at the gate.
+
 
 **Files:** Modify `ttsdata/manifest.py` (`tier_funnel` gains a `flags` gate); Test `tests/test_manifest.py`.
 

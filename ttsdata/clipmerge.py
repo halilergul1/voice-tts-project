@@ -248,7 +248,7 @@ def _verify(cfg: Config, cands: list[dict], wav_dir: Path, cache: dict[str, dict
 def _write_listen(out: Path, kept: list[dict], weakest: dict[str, float], n: int) -> None:
     import os
 
-    d = out / "listen"
+    d = out / "listen_merges"  # audit_quality.py owns listen/
     d.mkdir(exist_ok=True)
     for p in d.iterdir():
         if p.is_symlink():
@@ -395,6 +395,6 @@ def readme(st: dict) -> str:
         f"{st['hours_ge_3s_with_merges']} h when merged clips replace their members",
         f"- at the manifest gate (>= 3 s and CER <= 0.05): {st['tier_hours_singles_only']} h singles only, "
         f"{st['tier_hours_with_merges']} h with merges",
-        "- listening sample: `listen/index.md` (weakest voice links first, then random)",
+        "- listening sample: `listen_merges/index.md` (weakest voice links first, then random)",
         f"- settings: `{json.dumps(st['settings'])}`", "",
     ])

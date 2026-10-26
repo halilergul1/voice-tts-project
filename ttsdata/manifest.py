@@ -10,8 +10,20 @@ from collections import defaultdict
 from .quality import text_flags
 from .textnorm import normalize
 
+# soundtags flags that make a clip unusable for training at any stage (subtitle says so: another speaker talks over
+# it, the words are foreign or unintelligible, a word is bleeped, or the voice comes from a TV / PA / phone speaker)
+EXCLUDE_FLAGS = {"overlap", "foreign_speech", "unintelligible", "censored", "channel"}
+STAGE2_EXCLUDE_FLAGS = EXCLUDE_FLAGS | {"bg_laugh"}  # a laugh track under speech would teach [gülme] the wrong sound
 
-def _gates(min_dur, max_dur, max_cer, max_music_db, max_music_db_separated, min_cluster, max_trail):
+
+def _sound_ok(r: dict, soundtags: dict[str, dict] | None, stage: int) -> bool:
+    if soundtags is None:
+        return True  # ttsdata soundtags has not run: nothing to exclude
+    banned = STAGE2_EXCLUDE_FLAGS if stage >= 2 else EXCLUDE_FLAGS
+    return not (set(soundtags.get(r["id"], {}).get("flags", [])) & banned)
+
+
+def _gates(min_dur, max_dur, max_cer, max_music_db, max_music_db_separated, min_cluster, max_trail, soundtags, stage):
     return [
         ("audited", lambda r, q: q is not None and "text_flags" in q and "trail_sil" in q),  # fail closed
         ("duration", lambda r, q: min_dur <= r["duration"] <= max_dur),
@@ -21,16 +33,22 @@ def _gates(min_dur, max_dur, max_cer, max_music_db, max_music_db_separated, min_
         ("trail", lambda r, q: (q.get("trail_sil") or 0.0) <= max_trail),
         ("music", lambda r, q: q.get("music_db") is None or
          q["music_db"] <= (max_music_db_separated if q.get("source") == "separated" else max_music_db)),
+        ("sound_flags", lambda r, q: _sound_ok(r, soundtags, stage)),
     ]
 
 
 def tier_funnel(rows: list[dict], quality: dict[str, dict], *, min_dur: float = 3.0, max_dur: float = 20.0,
                 max_cer: float = 0.05, max_music_db: float = -20.0, max_music_db_separated: float = -5.0,
-                min_cluster: int = 10, max_trail: float = 0.5) -> list[tuple[str, list[dict]]]:
-    """Rows surviving each gate, cumulatively: [("audited", rows), ("duration", rows), ...]."""
+                min_cluster: int = 10, max_trail: float = 0.5, soundtags: dict[str, dict] | None = None,
+                stage: int = 1) -> list[tuple[str, list[dict]]]:
+    """Rows surviving each gate, cumulatively: [("audited", rows), ("duration", rows), ...].
+
+    soundtags: {clip id: soundtags.jsonl row} when `ttsdata soundtags` has run (None: no sound_flags gate);
+    stage 2 (expressive training) also drops clips under a laugh track."""
     kept = rows
     out = []
-    for name, ok in _gates(min_dur, max_dur, max_cer, max_music_db, max_music_db_separated, min_cluster, max_trail):
+    for name, ok in _gates(min_dur, max_dur, max_cer, max_music_db, max_music_db_separated, min_cluster, max_trail,
+                           soundtags, stage):
         kept = [r for r in kept if ok(r, quality.get(r["id"]))]
         out.append((name, kept))
     return out
@@ -40,6 +58,18 @@ def select_tier(rows: list[dict], quality: dict[str, dict], **kw) -> list[dict]:
     """Rows that pass every gate (see tier_funnel for the gates and their defaults)."""
     funnel = tier_funnel(rows, quality, **kw)
     return funnel[-1][1] if funnel else []
+
+
+def combine_units(singles: list[dict], merged: list[dict], quality: dict[str, dict], **tier_kw) -> list[dict]:
+    """Training units: merged clips that pass the tier replace their members; every other single clip stays.
+
+    Each returned row carries "root": "dataset" or "dataset_long", so the caller can resolve its audio path.
+    (The tier is applied to the union again by the caller; merged rows pass it twice, harmlessly.)"""
+    good_merged = select_tier(merged, quality, **tier_kw)
+    covered = {m for row in good_merged for m in row["members"]}
+    out = [{**r, "root": "dataset"} for r in singles if r["id"] not in covered]
+    out += [{**r, "root": "dataset_long"} for r in good_merged]
+    return out
 
 
 def pair_references(rows: list[dict], ratio: float = 0.4, seed: int = 0) -> dict[str, str]:
@@ -76,11 +106,13 @@ def replay_text(raw: str) -> str | None:
     return norm
 
 
-def manifest_row(row: dict, ref: dict | None, audio_root: str, dataset_id: int = 0) -> dict:
+def manifest_row(row: dict, ref: dict | None, audio_root: str, dataset_id: int = 0,
+                 ref_audio_root: str | None = None) -> dict:
+    """One VoxCPM manifest row; ref_audio_root when the reference clip lives in another root (a merged clip)."""
     d = {"audio": f"{audio_root}/{row['id']}.wav", "text": row["normalized_text"], "duration": row["duration"],
          "dataset_id": dataset_id}
     if ref is not None:
-        d["ref_audio"] = f"{audio_root}/{ref['id']}.wav"
+        d["ref_audio"] = f"{ref_audio_root or audio_root}/{ref['id']}.wav"
         d["ref_duration"] = ref["duration"]
     return d
 
