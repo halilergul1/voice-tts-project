@@ -1,4 +1,4 @@
-from ttsdata.eventverify import TAG_CLASSES, SPEECH_CLASSES, laugh_syllables, speech_tokens, verdict
+from ttsdata.eventverify import TAG_CLASSES, SPEECH_CLASSES, evidence, laugh_syllables, speech_tokens, verdict
 
 
 def test_speech_tokens_ignores_laughter_interjections_and_hallucinations():
@@ -8,6 +8,9 @@ def test_speech_tokens_ignores_laughter_interjections_and_hallucinations():
     assert speech_tokens("hıh hmm ah of oh aa ay") == []
     assert speech_tokens("(gülme) [kahkaha] (ağlama)") == []
     assert speech_tokens("Altyazı M.K.") == []                      # Whisper's credits hallucination on non-speech
+    assert speech_tokens("Ahahahah Altyazı M.K.") == []              # the hallucination is dropped, not the whole text
+    assert speech_tokens("Gel buraya Altyazı M.K.") == ["gel", "buraya"]
+    assert speech_tokens("k m .K.") == []                              # consonant-only fragments are never words
     assert speech_tokens("Altyazı: Ahmet Yılmaz") == []
     assert speech_tokens("") == []
     assert speech_tokens("İzlediğiniz için teşekkür ederim.") == ["izlediğiniz", "için", "teşekkür", "ederim"]
@@ -34,8 +37,14 @@ def test_verdict_rules():
     assert verdict("laugh", ["altyazı", "mk"], speech_prob=0.05, tag_prob=0.6, thr=thr) == (True, None)
     # clean extension, laugh detected
     assert verdict("laugh", [], speech_prob=0.1, tag_prob=0.5, thr=thr) == (True, None)
-    # clean extension, nothing detected
-    assert verdict("laugh", [], speech_prob=0.1, tag_prob=0.05, thr=thr) == (False, "unconfirmed")
+    # clean extension (no words, no speech-like audio), nothing positively detected: accepted as "clean" by default,
+    # because listening found the subtitle's sound present in every such sample; switchable off
+    assert verdict("laugh", [], speech_prob=0.1, tag_prob=0.05, thr=thr) == (True, None)
+    assert verdict("laugh", [], speech_prob=0.1, tag_prob=0.05, thr={**thr, "accept_clean": False}) == (False, "unconfirmed")
+    assert evidence("laugh", [], speech_prob=0.1, tag_prob=0.05, thr=thr) == "clean"
+    assert evidence("laugh", [], speech_prob=0.1, tag_prob=0.5, thr=thr) == "tagger"
+    assert evidence("laugh", [], speech_prob=0.1, tag_prob=0.0, thr=thr, laugh_syl=3) == "laugh_syllables"
+    assert evidence("cry", [], speech_prob=0.5, tag_prob=0.05, thr=thr) is None   # speech-like audio, no words: unconfirmed
     # speech according to the tagger alone (no words) is not enough to reject a laugh that is detected
     assert verdict("laugh", [], speech_prob=0.5, tag_prob=0.5, thr=thr) == (True, None)
     # but speech without the tagged sound is rejected
@@ -47,8 +56,8 @@ def test_verdict_rules():
     assert verdict("laugh", ["evet"], speech_prob=0.23, tag_prob=0.5, thr=thr) == (True, None)
     # Whisper's laughter syllables confirm a laugh even when the tagger is quiet
     assert verdict("laugh", [], speech_prob=0.1, tag_prob=0.0, thr=thr, laugh_syl=4) == (True, None)
-    assert verdict("laugh", [], speech_prob=0.1, tag_prob=0.0, thr=thr, laugh_syl=1) == (False, "unconfirmed")
-    assert verdict("cry", [], speech_prob=0.1, tag_prob=0.0, thr=thr, laugh_syl=4) == (False, "unconfirmed")
+    assert verdict("laugh", [], speech_prob=0.1, tag_prob=0.0, thr={**thr, "accept_clean": False}, laugh_syl=1) == (False, "unconfirmed")
+    assert verdict("cry", [], speech_prob=0.1, tag_prob=0.0, thr={**thr, "accept_clean": False}, laugh_syl=4) == (False, "unconfirmed")
 
 
 def test_laugh_syllables_counts_ha_like_tokens():
@@ -60,6 +69,7 @@ def test_laugh_syllables_counts_ha_like_tokens():
     assert laugh_syllables("Haaa!") == 1
     assert laugh_syllables("İzlediğiniz için teşekkür ederim.") == 0
     assert laugh_syllables("Altyazı M.K.") == 0
+    assert laugh_syllables("Ahahahahahahah Altyazı M.K.") >= 4         # a laugh followed by the credits hallucination
 
 
 def test_pad_to_centres_short_audio():

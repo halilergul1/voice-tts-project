@@ -81,6 +81,7 @@ class Config:
     # verification of extended clips (ttsdata verify-events): Whisper + PANNs AudioSet tagger on the added audio
     event_speech_prob: float = 0.3         # words heard AND speech probability >= this: a narrator / another speaker
     event_tag_prob: float = 0.2            # the tag's own AudioSet class must reach this somewhere in the extension
+    event_accept_clean: bool = True        # a clean extension (no words, no speech-like audio) counts as verified
 
     @property
     def raw_dir(self) -> Path:

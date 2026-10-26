@@ -52,48 +52,63 @@ _LAUGH_SYL = re.compile(r"[kh]?[aeıioöuü]+h?")
 INTERJECTIONS = {"ay", "oy", "of", "öf", "uf", "hmm", "hm", "hı", "hıh", "ee", "aa", "ya", "oha", "vay", "ah", "oh",
                  "eh", "ıh", "uh", "hey", "hişt", "şşş", "pff", "pöf", "öff", "tüh", "tsk", "cık", "ıı", "mm", "mmm",
                  "ahem", "ehem", "öhö", "öhöm", "khm", "hmph", "ahh", "ohh", "aah", "ooh"}
-HALLUCINATION_RE = re.compile(r"altyazı|abone ol|kanalıma|takip edin|m\.k\.", re.IGNORECASE)
+# Whisper's credits hallucination on non-speech audio ("Altyazı M.K."): dropped from the text, the rest still counts
+HALLUCINATION_RE = re.compile(r"altyazı\w*(?:[\s:]+\S+){0,2}|abone ol\w*|kanalıma\b|takip edin|\bm\.k\.?", re.IGNORECASE)
 _ANNOTATION_RE = re.compile(r"\([^)]*\)|\[[^\]]*\]|\*[^*]*\*")
 
 
 def speech_tokens(text: str) -> list[str]:
     """Real words Whisper heard in an extension: laughter syllables, interjections, annotations and the usual
     credits hallucinations removed."""
-    if not text or HALLUCINATION_RE.search(text):
+    if not text:
         return []
-    t = tr_lower(_ANNOTATION_RE.sub(" ", text))
+    t = tr_lower(_ANNOTATION_RE.sub(" ", HALLUCINATION_RE.sub(" ", text)))
     out = []
     for tok in re.findall(r"[\wçğıöşü']+", t):
         tok = tok.strip("'")
-        if not tok or tok in INTERJECTIONS or _LAUGH_TOKEN.match(tok):
-            continue
+        if not tok or tok in INTERJECTIONS or _LAUGH_TOKEN.match(tok) or not re.search(r"[aeıioöuü]", tok):
+            continue  # laughter, interjections and vowel-less fragments ("k" from a half-eaten "M.K.") are not words
         out.append(tok)
     return out
 
 
 def laugh_syllables(text: str) -> int:
     """How many ha-like syllables Whisper wrote for the extension ("Hahahaha" -> 4, "Hı hı hı" -> 3)."""
-    if not text or HALLUCINATION_RE.search(text):
+    if not text:
         return 0
     n = 0
-    for tok in re.findall(r"[\wçğıöşü]+", tr_lower(_ANNOTATION_RE.sub(" ", text))):
+    for tok in re.findall(r"[\wçğıöşü]+", tr_lower(_ANNOTATION_RE.sub(" ", HALLUCINATION_RE.sub(" ", text)))):
         if _LAUGH_TOKEN.match(tok):  # "hı hı hı": an interjection once, laughter when it repeats
             n += len(_LAUGH_SYL.findall(tok))
     return n
 
 
+def evidence(tag: str, words: list[str], speech_prob: float, tag_prob: float, thr: dict,
+             laugh_syl: int = 0) -> str | None:
+    """Why the tagged sound is believed to be in the extension: "laugh_syllables" (Whisper wrote ha-ha),
+    "tagger" (the tag's AudioSet class fired), "clean" (no words and no speech-like audio: the subtitle cue stands,
+    accepted when thr["accept_clean"], default True, since listening found the sound in every such sample), or None."""
+    if tag == "laugh" and laugh_syl >= thr.get("laugh_syllables", 2):
+        return "laugh_syllables"
+    if tag_prob >= thr.get(f"tag_prob_{tag}", thr["tag_prob"]):
+        return "tagger"
+    if thr.get("accept_clean", True) and not words and speech_prob < thr["speech_prob"]:
+        return "clean"
+    return None
+
+
 def verdict(tag: str, words: list[str], speech_prob: float, tag_prob: float, thr: dict,
             laugh_syl: int = 0) -> tuple[bool, str | None]:
-    """(verified, reason). thr: speech_prob, tag_prob, optional tag_prob_<tag>, optional laugh_syllables (default 2).
+    """(verified, reason). thr: speech_prob, tag_prob, optional tag_prob_<tag>, laugh_syllables (2), accept_clean (True).
 
     Speech in the extension: a sentence (3+ real words) always, 1-2 words when the tagger hears speech too.
-    The tagged sound: the tag's class probability, or for laughs Whisper's own ha-ha syllables."""
+    Otherwise verified when `evidence` finds something; "unconfirmed" when the tagger hears speech-like audio
+    without words (sobbing with words, or a narrator Whisper missed) and nothing positive was heard."""
     if len(words) >= 3 or (words and speech_prob >= thr["speech_prob"]):
         return False, "speech_in_extension"
-    need = thr.get(f"tag_prob_{tag}", thr["tag_prob"])
-    if tag_prob >= need or (tag == "laugh" and laugh_syl >= thr.get("laugh_syllables", 2)):
+    if evidence(tag, words, speech_prob, tag_prob, thr, laugh_syl) is not None:
         return True, None
-    return False, "unconfirmed"  # clean extension (no speech found) but no positive evidence of the sound
+    return False, "unconfirmed"
 
 
 # ----------------------------------------------------------------------------------------------- driver
@@ -205,7 +220,7 @@ def run(cfg: Config, report: bool = True, limit: int = 0, out_dir: Path | None =
                 f.flush()
                 bar.update(1)
 
-    thr = {"speech_prob": cfg.event_speech_prob, "tag_prob": cfg.event_tag_prob}
+    thr = {"speech_prob": cfg.event_speech_prob, "tag_prob": cfg.event_tag_prob, "accept_clean": cfg.event_accept_clean}
     reasons: Counter = Counter()
     for r in rows:
         m = cache[key(r)]
@@ -214,7 +229,8 @@ def run(cfg: Config, report: bool = True, limit: int = 0, out_dir: Path | None =
         r["verified"] = ok
         r["detector"] = {"asr_ext": m["asr_ext"], "speech_words": words, "laugh_syllables": syl,
                          "speech_prob": m["speech_prob"], "tag_prob": m["tag_prob"], "ext_sec": m.get("ext_sec"),
-                         "reason": why, "thresholds": thr}
+                         "reason": why, "evidence": evidence(r["tag"], words, m["speech_prob"], m["tag_prob"], thr, syl) if ok else None,
+                         "thresholds": thr}
         reasons[why or "verified"] += 1
 
     def lj(r):
@@ -248,16 +264,16 @@ def run(cfg: Config, report: bool = True, limit: int = 0, out_dir: Path | None =
 
 
 def report_table(rows: list[dict]) -> str:
-    lines = ["| tag | rows | verified | speech in extension | unconfirmed | tag_prob p10 / median / p90 | speech_prob median |",
+    lines = ["| tag | rows | verified (ha-ha / tagger / clean) | speech in extension | unconfirmed | tag_prob median | speech_prob median |",
              "|---|---|---|---|---|---|---|"]
     for tag in sorted({r["tag"] for r in rows}):
         rs = [r for r in rows if r["tag"] == tag]
         tp = np.array([r["detector"]["tag_prob"] for r in rs])
         sp = np.array([r["detector"]["speech_prob"] for r in rs])
         reasons = Counter(r["detector"]["reason"] for r in rs)
-        lines.append(f"| {tag} | {len(rs)} | {sum(1 for r in rs if r['verified'])} | {reasons.get('speech_in_extension', 0)} | "
-                     f"{reasons.get('unconfirmed', 0)} | {np.percentile(tp, 10):.2f} / {np.median(tp):.2f} / {np.percentile(tp, 90):.2f} | "
-                     f"{np.median(sp):.2f} |")
+        ev = Counter(r["detector"].get("evidence") for r in rs if r["verified"])
+        lines.append(f"| {tag} | {len(rs)} | {sum(ev.values())} ({ev.get('laugh_syllables', 0)} / {ev.get('tagger', 0)} / {ev.get('clean', 0)}) | "
+                     f"{reasons.get('speech_in_extension', 0)} | {reasons.get('unconfirmed', 0)} | {np.median(tp):.2f} | {np.median(sp):.2f} |")
     return "\n".join(lines)
 
 
@@ -275,7 +291,7 @@ def _write_listen(out: Path, rows: list[dict], n: int = 5) -> None:
     k = 0
     groups = defaultdict(list)
     for r in rows:
-        groups[r["detector"]["reason"] or "verified"].append(r)
+        groups[r["detector"]["reason"] or f"verified_{r['detector'].get('evidence')}"].append(r)
     for reason, rs in sorted(groups.items()):
         for r in rng.sample(rs, min(n, len(rs))):
             name = f"{k:03d}_{reason}_{r['id']}.wav"

@@ -152,16 +152,21 @@ The 1.5 s `before` / `after` events are the largest pool of real Turkish laughs,
 
 ### Task 6a: Sound-event verifier — DONE 2026-10-26 (`ttsdata verify-events`, `ttsdata/eventverify.py`)
 
-Local run on the 90 extended clips: 25 verified (24 laughs, 1 cough), 31 `speech_in_extension`, 34 `unconfirmed`
-(11 breaths, 4 cries, 15 laughs, 3 throat clears, 1 sigh). What was learned, measured on the user's listened clips:
+Local run on the 90 extended clips, after the user listened to 5 clips per decision: 52 verified (37 laughs: 25 by
+Whisper's ha-ha syllables, 3 by the tagger, 9 clean; 9 breaths, 2 cries, 1 sigh, 1 throat clear, 1 yawn clean;
+1 cough by the tagger), 29 `speech_in_extension`, 9 `unconfirmed`. The listening found: every `speech_in_extension`
+sample really had someone talking in the added part; every verified laugh was real and mostly in the speaker's own
+voice (rarely another person); every clean-extension sample had the tagged sound with only the clip's own line
+spoken, which is why a clean extension now counts as evidence (`event_accept_clean`). Learned, measured:
 - Whisper on the extension alone catches the audio-description narrator (both clips the user flagged, plus more the
   sample missed); the packed whole-clip re-check does not. Speaker similarity (ECAPA) does not separate them.
 - PANNs Cnn14 (frame-wise and clip-wise) is not a usable positive detector here: "Music" dominates, user-confirmed
   good laughs score 0.00–0.02, crying and breathing never fire. Whisper's own ha-like syllables are the positive
   evidence for laughs (24 of 53 verified).
-- Consequence for Stage 2: `[gülme]` can be trained on verified rows; `[ağlama]` / `[nefes]` rows are only
-  `unconfirmed` and need human listening (`listen_verify/`) or a dedicated detector before use. The manifest
-  (Task 4) should take `verified` rows by default and `unconfirmed` rows only on an explicit flag.
+- Consequence for Stage 2: `[gülme]` rows are well supported (ha-ha evidence); `[ağlama]` / `[nefes]` rows rest on
+  the subtitle cue plus a clean extension (`evidence: clean`), confirmed by listening on a small sample; the laugh's
+  speaker is still unverified (rarely another person). The manifest (Task 4) takes `verified` rows by default,
+  can restrict to evidence levels, and takes `unconfirmed` rows only on an explicit flag.
 
 ### Task 6b: Classifier layer and calibration (from the report)
 
