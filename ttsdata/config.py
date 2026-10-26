@@ -78,6 +78,9 @@ class Config:
     event_pad: float = 0.2                 # seconds of margin around the event cue
     event_max_dur: float = 15.0            # longest extended clip
     event_max_bleed: int = 1               # extra Whisper tokens tolerated on the extended side (a laugh is not words)
+    # verification of extended clips (ttsdata verify-events): Whisper + PANNs AudioSet tagger on the added audio
+    event_speech_prob: float = 0.3         # words heard AND speech probability >= this: a narrator / another speaker
+    event_tag_prob: float = 0.2            # the tag's own AudioSet class must reach this somewhere in the extension
 
     @property
     def raw_dir(self) -> Path:

@@ -150,7 +150,20 @@ The 1.5 s `before` / `after` events are the largest pool of real Turkish laughs,
 - [ ] Driver reuses `clipmerge._cut_episode` / `_verify` (cut from raw audio, Whisper re-check of the plain text, CER ≤ `merge_max_cer`).
 - [ ] A laughter / sound-event detector (layer 2 of the label plan) confirms the extension holds the sound before the row is kept; until it exists, rows are written but marked `"verified": false` and Stage 2 uses only verified ones.
 
-### Task 6: Classifier layer and calibration (from the report)
+### Task 6a: Sound-event verifier — DONE 2026-10-26 (`ttsdata verify-events`, `ttsdata/eventverify.py`)
+
+Local run on the 90 extended clips: 25 verified (24 laughs, 1 cough), 31 `speech_in_extension`, 34 `unconfirmed`
+(11 breaths, 4 cries, 15 laughs, 3 throat clears, 1 sigh). What was learned, measured on the user's listened clips:
+- Whisper on the extension alone catches the audio-description narrator (both clips the user flagged, plus more the
+  sample missed); the packed whole-clip re-check does not. Speaker similarity (ECAPA) does not separate them.
+- PANNs Cnn14 (frame-wise and clip-wise) is not a usable positive detector here: "Music" dominates, user-confirmed
+  good laughs score 0.00–0.02, crying and breathing never fire. Whisper's own ha-like syllables are the positive
+  evidence for laughs (24 of 53 verified).
+- Consequence for Stage 2: `[gülme]` can be trained on verified rows; `[ağlama]` / `[nefes]` rows are only
+  `unconfirmed` and need human listening (`listen_verify/`) or a dedicated detector before use. The manifest
+  (Task 4) should take `verified` rows by default and `unconfirmed` rows only on an explicit flag.
+
+### Task 6b: Classifier layer and calibration (from the report)
 
 Out of scope here; listed so the order is clear: emotion2vec+ / EmpathicInsight-Voice coarse emotions on every clip, a laughter / event detector, gender per speaker cluster, 300–500 clips rated by native listeners, agreement measured before any classifier label becomes a prefix. Subtitle labels serve as the free check on the classifiers.
 

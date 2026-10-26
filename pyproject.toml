@@ -23,6 +23,7 @@ dependencies = [
 dev = ["pytest>=8"]
 cuda = ["faster-whisper>=1.1"]   # Linux / NVIDIA: pip install -e ".[cuda]"
 speakers = ["speechbrain>=1.0"]  # ttsdata speakers: ECAPA-TDNN speaker embeddings (CPU / MPS / CUDA)
+events = ["panns-inference>=0.1.1"]  # ttsdata verify-events: AudioSet tagger (laughter, crying, speech) on event clips
 
 [project.scripts]
 ttsdata = "ttsdata.cli:main"
