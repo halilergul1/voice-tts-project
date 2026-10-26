@@ -105,7 +105,11 @@ roots; passes with a warning when `ttsdata soundtags` has not run. Local: 19 cli
 - [ ] Test: a row whose soundtags flags contain `overlap` / `foreign_speech` / `unintelligible` / `censored` / `channel` is dropped at a new `sound_flags` gate; `music`, `sfx` pass; `bg_laugh` passes unless `stage=2`.
 - [ ] Implement `sound_flags` gate reading `soundtags.jsonl` from each root (missing file = no flags, gate passes, warning printed).
 
-### Task 3: Label text functions
+### Task 3: Label text functions — DONE 2026-10-26
+
+`ttsdata/labels.py`: `STYLE_PREFIX`, `EVENT_TAG`, `STRONG_STYLES`, `allowed_labels`, `labelled_text` (prefix in table
+order, tags at merged-clip pauses, never for `who_match: false` or unknown positions), `oversample` (capped).
+
 
 **Files:** Create `ttsdata/labels.py`; Test `tests/test_labels.py`.
 
@@ -117,7 +121,16 @@ roots; passes with a warning when `ttsdata soundtags` has not run. Local: 19 cli
 - [ ] Tests: `labelled_text("Neden gittin?", {"style": ["crying"], "events": []}, {"crying"}, set()) == "(ağlayarak) Neden gittin?"`; two styles → one prefix joined by ", " in table order; a `gap:0` laugh with `char=4`, `who_match=None` → `"Gel. [gülme] Hadi gidelim."`; same with `who_match=False` → unchanged; `inside` event → unchanged; style not in `styles_ok` → unchanged.
 - [ ] Implement; prefixes and tags are applied to `normalized_text` after the tier is chosen.
 
-### Task 4: Stage-aware manifest
+### Task 4: Stage-aware manifest — DONE 2026-10-26
+
+`--stage 1`: no labels, no event rows, strong-style rows out (`stage_filter`). `--stage 2`: `combine_events` puts
+verified event-extended clips (selectable evidence levels, `--include-unconfirmed`) in place of their base clips,
+one per base; labels written above `--min-style` / `--min-tag`; event clips whose tag is below the threshold go
+back to their base (an untagged laugh in the audio would mislead); labelled rows oversampled with a 40 % cap.
+Local test with low thresholds (`--min-tag 5`): 27 `[gülme]` event clips and 2 style prefixes in a 4,822-clip
+slice, 29 labelled rows → 85 after oversampling; 0 missing files, 0 invalid rows, 0 base clips beside their
+extended version. With the plan's defaults nothing is labelled until the catalogue build supplies ≥ 300 laughs.
+
 
 **Files:** Modify `scripts/make_voxcpm_manifest.py`; Test `tests/test_manifest.py`.
 
@@ -176,5 +189,5 @@ Out of scope here; listed so the order is clear: emotion2vec+ / EmpathicInsight-
 
 1. ~~Task 2 (exclusion flags) and Task 1 (merged clips in the manifest)~~ done.
 2. ~~Task 5 (event-extended clips)~~ done; the manifest side (extended clip replaces its base) lands with Task 4.
-3. Task 6 (classifiers + native calibration): the source for angry / sad / happy styles.
-4. Task 3 and Task 4 (label text, Stage 2 manifest): once 2 and 3 have produced labels above the thresholds.
+3. ~~Task 3 and Task 4 (label text, Stage 2 manifest)~~ done; Task 6a (verifier) done.
+4. Task 6b (emotion classifiers + native calibration): the source for angry / sad / happy styles; then Stage 2 training.

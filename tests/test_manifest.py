@@ -103,3 +103,33 @@ def test_manifest_row_resolves_the_reference_by_its_own_root():
     d = manifest_row(R(0), merged_ref, audio_root="../dataset/wavs_clean", ref_audio_root="../dataset_long/wavs_clean")
     assert d["audio"] == "../dataset/wavs_clean/c0.wav" and d["ref_audio"] == "../dataset_long/wavs_clean/c1_x2.wav"
     assert d["ref_duration"] == 6.0 and validate_row(d) == []
+
+
+def test_combine_events_replaces_the_base_with_its_extended_clip():
+    from ttsdata.manifest import combine_events
+    units = [{**R(0), "root": "dataset"}, {**R(1), "root": "dataset"}, {**R(2), "id": "c2_x2", "root": "dataset_long", "members": ["c2", "c3"]}]
+    ev = lambda i, base, tag="laugh", evidence="laugh_syllables", verified=True, dur=6.0: {  # noqa: E731
+        **R(i), "id": f"{base}_{tag}", "base": base, "tag": tag, "edge": "start", "duration": dur, "verified": verified,
+        "detector": {"evidence": evidence if verified else None, "reason": None if verified else "unconfirmed"},
+        "text_tagged": f"[gülme] Merhaba.", "normalized_text_tagged": f"[gülme] Merhaba.", "cer": 0.0}
+    events = [ev(10, "c0"), ev(11, "c0", tag="cry", evidence="clean", dur=8.0), ev(12, "c2_x2"), ev(13, "c9")]
+    unc = [ev(14, "c1", verified=False)]
+    bad = [ev(15, "c1", dur=25.0)]
+    q = {r["id"]: Q(0) for r in units + events + unc + bad}
+    out = combine_events(units, events, q, evidence={"laugh_syllables", "tagger", "clean"}, include_unconfirmed=False)
+    ids = {u["id"]: u for u in out}
+    assert set(ids) == {"c0_laugh", "c1", "c2_x2_laugh"}        # c0 and c2_x2 replaced; c9 has no base here: skipped
+    assert ids["c0_laugh"]["root"] == "dataset_events"          # the stronger evidence wins over the longer clean one
+    assert combine_events(units, events, q, evidence={"clean"}, include_unconfirmed=False)[0]["id"] in ("c0_cry", "c1")
+    assert {u["id"] for u in combine_events(units, unc, q, evidence={"clean"}, include_unconfirmed=False)} == {"c0", "c1", "c2_x2"}
+    assert "c1_laugh" in {u["id"] for u in combine_events(units, unc, q, evidence={"clean"}, include_unconfirmed=True)}
+    # an extended clip that fails the tier (25 s): the base stays
+    assert {u["id"] for u in combine_events(units, bad, q, evidence={"clean"}, include_unconfirmed=False)} == {"c0", "c1", "c2_x2"}
+
+
+def test_stage_filter_drops_strong_styles_and_events_in_stage_1():
+    from ttsdata.manifest import stage_filter
+    rows = [{**R(0), "root": "dataset"}, {**R(1), "root": "dataset"}, {**R(2), "id": "c2_laugh", "root": "dataset_events"}]
+    tags = {"c0": {"style": ["crying"], "flags": [], "events": []}, "c1": {"style": ["dialect"], "flags": [], "events": []}}
+    assert [r["id"] for r in stage_filter(rows, tags, stage=1)] == ["c1"]
+    assert [r["id"] for r in stage_filter(rows, tags, stage=2)] == ["c0", "c1", "c2_laugh"]

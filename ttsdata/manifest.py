@@ -7,6 +7,7 @@ import random
 import re
 from collections import defaultdict
 
+from .labels import STRONG_STYLES
 from .quality import text_flags
 from .textnorm import normalize
 
@@ -69,6 +70,52 @@ def combine_units(singles: list[dict], merged: list[dict], quality: dict[str, di
     covered = {m for row in good_merged for m in row["members"]}
     out = [{**r, "root": "dataset"} for r in singles if r["id"] not in covered]
     out += [{**r, "root": "dataset_long"} for r in good_merged]
+    return out
+
+
+_EVIDENCE_RANK = {"laugh_syllables": 3, "tagger": 2, "clean": 1, None: 0}
+
+
+def combine_events(units: list[dict], events: list[dict], quality: dict[str, dict], evidence: set[str],
+                   include_unconfirmed: bool = False, **tier_kw) -> list[dict]:
+    """Event-extended clips (ttsdata extend-events / verify-events) replace their base clip in the units.
+
+    An extended row is eligible when it is verified with an accepted evidence level (or unconfirmed and
+    include_unconfirmed), passes the tier, and its base is among the units; one row per base (strongest evidence,
+    then longest). Rows carry "root": "dataset_events"."""
+    def eligible(e):
+        d = e.get("detector") or {}
+        if e.get("verified"):
+            return d.get("evidence") in evidence
+        return include_unconfirmed and d.get("reason") == "unconfirmed"
+
+    good = select_tier([e for e in events if eligible(e)], quality, **tier_kw)
+    unit_ids = {u["id"] for u in units}
+    best: dict[str, dict] = {}
+    for e in good:
+        if e["base"] not in unit_ids:
+            continue
+        rank = (_EVIDENCE_RANK.get((e.get("detector") or {}).get("evidence"), 0), e["duration"])
+        if e["base"] not in best or rank > best[e["base"]][0]:
+            best[e["base"]] = (rank, e)
+    out = [u for u in units if u["id"] not in best]
+    out += [{**e, "root": "dataset_events"} for _, e in best.values()]
+    return out
+
+
+def stage_filter(rows: list[dict], tags: dict[str, dict] | None, stage: int) -> list[dict]:
+    """Stage 1 (plain prosody): no event-extended rows and no rows whose subtitle label marks a strong delivery
+    (they would be trained with plain text that sounds emotional). Stage 2: everything."""
+    if stage >= 2:
+        return list(rows)
+    out = []
+    for r in rows:
+        if r.get("root") == "dataset_events":
+            continue
+        style = set((tags or {}).get(r["id"], {}).get("style", []))
+        if style & STRONG_STYLES:
+            continue
+        out.append(r)
     return out
 
 

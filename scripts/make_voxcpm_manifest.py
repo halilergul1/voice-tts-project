@@ -4,6 +4,10 @@ Strict tier (see ttsdata.manifest.tier_funnel), capped at --max-hours with a per
 paired with a same-speaker reference clip, optional replay rows (FLEURS-tr) with dataset_id 1, every row validated.
 Merged clips from `ttsdata merge-clips` (--long-root) replace their member clips when they pass the tier; clips
 flagged by `ttsdata soundtags` as overlapping / foreign / unintelligible / censored / TV-voice are dropped.
+--stage 1 (prosody): plain text, no event-extended rows, no rows whose subtitle label marks a strong delivery.
+--stage 2 (expressive): verified event-extended rows (--events-root, --event-evidence) replace their base clips,
+Turkish style prefixes "(ağlayarak)" and inline tags "[gülme]" are written for labels frequent enough in the slice
+(--min-style / --min-tag), labelled rows are oversampled (--label-repeat, capped by --label-max-share).
 Also writes <out>/tier_report.md and data/eval/corpus_heldout.txt (val-set sentences for scripts/eval_tts.py).
 
 usage: .venv/bin/python scripts/make_voxcpm_manifest.py --root data/dataset --out data/voxcpm --wavs wavs_clean \
@@ -25,8 +29,9 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.manifest import (combine_units, manifest_row, pair_references, replay_text, tier_funnel,  # noqa: E402
-                              validate_row)
+from ttsdata.labels import EVENT_TAG, allowed_labels, labelled_text, oversample  # noqa: E402
+from ttsdata.manifest import (combine_events, combine_units, manifest_row, pair_references, replay_text,  # noqa: E402
+                              stage_filter, tier_funnel, validate_row)
 
 
 def fetch_fleurs(out_dir: Path, min_dur: float = 3.0, max_dur: float = 20.0, target_lufs: float = -20.0) -> int:
@@ -103,7 +108,15 @@ def main() -> int:
     ap.add_argument("--wavs", default="wavs_clean")
     ap.add_argument("--long-root", default="data/dataset_long", help="merged clips (ttsdata merge-clips); '' to skip")
     ap.add_argument("--long-wavs", default="wavs_clean")
-    ap.add_argument("--stage", type=int, default=1, choices=(1, 2), help="2 also drops clips under a laugh track")
+    ap.add_argument("--stage", type=int, default=1, choices=(1, 2), help="1 plain prosody; 2 labels + event clips")
+    ap.add_argument("--events-root", default="data/dataset_events", help="event-extended clips (ttsdata extend-events); '' to skip")
+    ap.add_argument("--events-wavs", default="wavs_clean")
+    ap.add_argument("--event-evidence", default="laugh_syllables,tagger,clean", help="accepted verification evidence levels")
+    ap.add_argument("--include-unconfirmed", action="store_true", help="also take unconfirmed event clips (stage 2)")
+    ap.add_argument("--min-style", type=int, default=50, help="clips a style needs in the slice to be written as a prefix")
+    ap.add_argument("--min-tag", type=int, default=300, help="instances an event tag needs in the slice to be written")
+    ap.add_argument("--label-repeat", type=int, default=3, help="stage 2: labelled rows repeated this many times")
+    ap.add_argument("--label-max-share", type=float, default=0.4, help="stage 2: labelled rows at most this share of train")
     ap.add_argument("--max-hours", type=float, default=60.0)
     ap.add_argument("--max-series-share", type=float, default=0.4)
     ap.add_argument("--ref-ratio", type=float, default=0.4)
@@ -155,6 +168,18 @@ def main() -> int:
         print("[warn] no soundtags.jsonl: run ttsdata soundtags to drop overlapping / foreign / censored clips")
     tier_kw = dict(max_cer=a.max_cer, min_cluster=a.min_cluster, soundtags=soundtags, stage=a.stage)
     rows = combine_units(singles, merged, quality, **tier_kw)
+    events_root = Path(a.events_root) if a.events_root and a.stage >= 2 else None
+    events = []
+    if events_root and (events_root / "metadata.jsonl").exists():
+        if not (events_root / "quality.jsonl").exists():
+            raise SystemExit(f"{events_root / 'quality.jsonl'} missing: run scripts/audit_quality.py --root {events_root}")
+        quality.update({q["id"]: q for q in load_jsonl(events_root / "quality.jsonl")})
+        events = with_wavs(load_jsonl(events_root / "metadata.jsonl"), events_root / a.events_wavs, "event clips")
+        rows = combine_events(rows, events, quality, evidence=set(a.event_evidence.split(",")),
+                              include_unconfirmed=a.include_unconfirmed, **tier_kw)
+    elif a.stage >= 2:
+        print("[warn] no event-extended clips (run ttsdata extend-events + verify-events, or pass --events-root)")
+    rows = stage_filter(rows, soundtags, a.stage)
     funnel = tier_funnel(rows, quality, **tier_kw)
     tier = funnel[-1][1]
     slice_rows = cap_hours(tier, a.max_hours, a.max_series_share, a.seed)
@@ -163,13 +188,40 @@ def main() -> int:
     pairs = {**pair_references(train_rows, a.ref_ratio, a.seed), **pair_references(val_rows, a.ref_ratio, a.seed)}
     by_id = {r["id"]: r for r in slice_rows}
     root_of = {"dataset": os.path.relpath(wav_dir, out),
-               "dataset_long": os.path.relpath(long_root / a.long_wavs, out) if long_root else None}
+               "dataset_long": os.path.relpath(long_root / a.long_wavs, out) if long_root else None,
+               "dataset_events": os.path.relpath(events_root / a.events_wavs, out) if events_root else None}
+
+    # labels (stage 2): styles from the clip's (or its base's) subtitle label, tags from event clips and merged pauses
+    def tags_of(r):
+        return (soundtags or {}).get(r.get("base") or r["id"])
+
+    styles_seen = [s for r in slice_rows for s in (tags_of(r) or {}).get("style", [])]
+    tags_seen = [r["tag"] for r in slice_rows if r["root"] == "dataset_events"]
+    tags_seen += [e["tag"] for r in slice_rows if r["root"] == "dataset_long" for e in (tags_of(r) or {}).get("events", [])
+                  if (e.get("where") or "").startswith("gap:") and e.get("who_match") is not False]
+    styles_ok, events_ok = allowed_labels(styles_seen, tags_seen, a.min_style, a.min_tag) if a.stage >= 2 else (set(), set())
+    if a.stage >= 2:  # an event clip whose tag is not written would carry an untagged sound: back to its base
+        slice_rows = [r for r in slice_rows if r["root"] != "dataset_events" or r["tag"] in events_ok]
 
     train, val = [], []
+    n_labelled = 0
     for r in slice_rows:
         ref = by_id.get(pairs.get(r["id"]))
-        d = manifest_row(r, ref, root_of[r["root"]], dataset_id=0, ref_audio_root=root_of[ref["root"]] if ref else None)
+        text = r["normalized_text_tagged"] if r["root"] == "dataset_events" else r["normalized_text"]
+        text = labelled_text(text, tags_of(r), styles_ok, events_ok) if a.stage >= 2 else text
+        d = manifest_row({**r, "normalized_text": text}, ref, root_of[r["root"]], dataset_id=0,
+                         ref_audio_root=root_of[ref["root"]] if ref else None)
+        d["labelled"] = text != r["normalized_text"]
+        n_labelled += d["labelled"]
         (val if r.get("split") == "val" else train).append(d)
+    repeat_used = 1
+    if a.stage >= 2 and a.label_repeat > 1:
+        before = len(train)
+        train = oversample(train, a.label_repeat, a.label_max_share, a.seed)
+        n_lab = sum(1 for d in train if d["labelled"])
+        repeat_used = round(n_lab / max(1, sum(1 for d in train[:before] if d["labelled"])), 2)
+    for d in train + val:
+        d.pop("labelled", None)
 
     replay_rows = []
     rdir = Path(a.replay_dir)
@@ -214,8 +266,10 @@ def main() -> int:
         return sum(r["duration"] for r in rs) / 3600
 
     n_merged_slice = sum(1 for r in slice_rows if r["root"] == "dataset_long")
+    n_events_slice = sum(1 for r in slice_rows if r["root"] == "dataset_events")
     covered = sum(len(r["members"]) for r in rows if r["root"] == "dataset_long")
     lines = [f"# VoxCPM manifest tier report ({a.wavs}/, stage {a.stage})", "",
+             f"event-extended clips: {len(events)} loaded" if a.stage >= 2 else "stage 1: no labels, no event clips, strong-style rows left out",
              f"single clips: {len(singles)} ({hrs(singles):.2f} h); merged clips: {len(merged)} ({hrs(merged):.2f} h), "
              f"of which {sum(1 for r in rows if r['root'] == 'dataset_long')} pass the tier and replace {covered} single clips",
              f"sound flags: {'applied (' + str(len(soundtags)) + ' tagged clips)' if soundtags is not None else 'not available'}",
@@ -223,13 +277,24 @@ def main() -> int:
              "| gate | clips | hours |", "|---|---|---|"]
     lines += [f"| {name} | {len(rs)} | {hrs(rs):.2f} |" for name, rs in funnel]
     lines += ["", f"slice (max {a.max_hours} h, series cap {a.max_series_share:.0%}): {len(slice_rows)} clips, {hrs(slice_rows):.2f} h, "
-              f"of which {n_merged_slice} merged ({hrs([r for r in slice_rows if r['root'] == 'dataset_long']):.2f} h)", "",
+              f"of which {n_merged_slice} merged ({hrs([r for r in slice_rows if r['root'] == 'dataset_long']):.2f} h)"
+              + (f" and {n_events_slice} event-extended" if a.stage >= 2 else ""), "",
               "| series | clips | hours | speakers |", "|---|---|---|---|"]
     per = defaultdict(list)
     for r in slice_rows:
         per[r["series"]].append(r)
     for s, rs in sorted(per.items(), key=lambda kv: -hrs(kv[1])):
         lines.append(f"| {s} | {len(rs)} | {hrs(rs):.2f} | {len({r['speaker_id'] for r in rs})} |")
+    if a.stage >= 2:
+        from collections import Counter as _C
+        cs, ct = _C(styles_seen), _C(tags_seen)
+        lines += ["", f"## Labels (stage 2; min_style {a.min_style}, min_tag {a.min_tag})", "",
+                  "| label | kind | in slice | written |", "|---|---|---|---|"]
+        lines += [f"| {s} | style | {n} | {'yes' if s in styles_ok else 'no'} |" for s, n in cs.most_common()]
+        lines += [f"| {t} | event | {n} | {'yes' if t in events_ok else 'no'} |" for t, n in ct.most_common()]
+        lines += ["", f"- labelled rows: {n_labelled} before oversampling; repeat factor used {repeat_used} "
+                  f"(requested {a.label_repeat}, cap {a.label_max_share:.0%} of train); event evidence accepted: {a.event_evidence}"
+                  + (" + unconfirmed" if a.include_unconfirmed else "")]
     n_ref = sum(1 for d in train + val if "ref_audio" in d)
     lines += ["", f"- rows with ref_audio: {n_ref} ({n_ref / max(1, len(slice_rows)):.0%} of corpus rows)",
               f"- replay rows (dataset_id 1): {len(replay_rows)} ({len(replay_rows) / max(1, len(train)):.0%} of train)",
