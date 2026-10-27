@@ -1,5 +1,7 @@
-from ttsdata.emotion import (COARSE, agree, calibration_sample, coarse_label, parse_ratings, score_ratings,
-                             suggest_thresholds)
+import json
+
+from ttsdata.emotion import (COARSE, agree, calibration_sample, coarse_label, parse_ratings, precision_curve,
+                             score_ratings, suggest_thresholds)
 
 
 def S(**kw):
@@ -55,7 +57,20 @@ def test_parse_and_score_ratings():
     assert m["n"] == 5 and abs(m["accuracy"] - 0.75) < 1e-9          # of the 4 labelled: a, c, e right, b wrong
     assert m["per_class"]["angry"] == {"predicted": 2, "correct": 1, "precision": 0.5, "rated": 1, "recall": 1.0}
     assert m["per_class"]["sad"]["recall"] == 0.5                       # d was sad but unlabelled
-    assert m["confusion"][("angry", "neutral")] == 1
+    assert m["confusion"]["angry->neutral"] == 1
+    json.dumps(m)                                                        # the CLI prints the stats as JSON
+
+
+def test_precision_curve_per_class():
+    preds = {"a0": ("angry", 0.5), "a1": ("angry", 0.6), "a2": ("angry", 0.7), "a3": ("angry", 0.8), "a4": ("angry", 0.9),
+             "s0": ("sad", 0.95), "n0": (None, 0.3)}
+    ratings = {"a0": "neutral", "a1": "neutral", "a2": "angry", "a3": "angry", "a4": "angry", "s0": "neutral", "n0": "sad"}
+    curve = precision_curve(preds, ratings, thresholds=(0.5, 0.7, 0.9, 0.95))
+    assert curve["angry"] == [{"threshold": 0.5, "kept": 5, "correct": 3, "precision": 0.6},
+                              {"threshold": 0.7, "kept": 3, "correct": 3, "precision": 1.0},
+                              {"threshold": 0.9, "kept": 1, "correct": 1, "precision": 1.0}]   # 0.95 keeps nothing: omitted
+    assert curve["sad"] == [{"threshold": t, "kept": 1, "correct": 0, "precision": 0.0} for t in (0.5, 0.7, 0.9, 0.95)]
+    assert None not in curve
 
 
 def test_suggest_thresholds_per_class():

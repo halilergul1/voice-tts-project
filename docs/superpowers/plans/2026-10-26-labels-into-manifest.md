@@ -181,7 +181,7 @@ spoken, which is why a clean extension now counts as evidence (`event_accept_cle
   speaker is still unverified (rarely another person). The manifest (Task 4) takes `verified` rows by default,
   can restrict to evidence levels, and takes `unconfirmed` rows only on an explicit flag.
 
-### Task 6b: Classifier layer and calibration — built 2026-10-26, calibration pending the user's ratings
+### Task 6b: Classifier layer and calibration — built 2026-10-26, calibrated 2026-10-27
 
 `ttsdata emotions` (`ttsdata/emotion.py`, `ttsdata/emotion_eiv.py`): emotion2vec+ large per clip with the
 confidence / margin rule, EmpathicInsight-Voice optional (its heads are 295 MB each, only the 15 behind the coarse
@@ -196,6 +196,20 @@ the 300 angry and 6 sad and agrees with emotion2vec+ on 43 % of the clips emotio
 thresholds (intensity 1.0, margin 0.3) are suspect until the ratings say otherwise. Scaled to the catalogue at the
 local rates, angry alone would be ~70,000 clips, far above the 50-clip prefix threshold; precision, not volume, is
 the question the ratings answer.
+
+Calibration (2026-10-27, one native rater, 299 of the 300 clips rated; the sheet is kept at
+`calibration/emotion_ratings_2026-10-27.csv`): emotion2vec+ is right on 72 % of the 239 clips it labelled. Per predicted
+class at the default cut (confidence 0.6, margin 0.2): angry precision 0.85 (51/60), neutral 0.93 (56/60), sad 0.62
+(37/60; 16 misses rated neutral), happy 0.46 (27/59; 23 misses rated neutral). Raising the confidence cut: angry >= 0.70
+0.92 (44/48); sad >= 0.85 0.79 (26/33), >= 0.95 0.81 (17/21); happy >= 0.97 0.75 (18/24), >= 0.99 0.79 (15/19).
+Ruling: stage 2 styles with `--auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99`; local yield at those cuts
+1,317 angry / 1,717 sad / 1,254 happy clips (singles + merged). happy is the weak label: a lively neutral delivery
+reads as happy to the model, and its estimate rests on 19 rated clips. If time allows before Stage 2, a second rating
+round over happy >= 0.95 and sad >= 0.80 clips (60 each) would firm both up. EmpathicInsight-Voice: precision angry 0.40
+(128 predictions), happy 0.32, sad 0.67 on 6 predictions; requiring agreement lifts angry only to 0.875 (vs 0.92 from
+the cut alone) while halving recall and leaves happy at 0.64 — dropped like PANNs; `--eiv` stays opt-in and is not run
+on the catalogue. The rater also used `other` 8 times (surprise / fear / sarcasm) and `other/sad` once; those count
+against precision, which is the conservative reading.
 Gender per speaker cluster (pitch + classifier) is not built; the Data-Speech route from the report remains open.
 
 

@@ -113,7 +113,7 @@ def score_ratings(preds: dict[str, tuple[str | None, float]], ratings: dict[str,
         if label is not None:
             labelled += 1
             per[label]["predicted"] += 1
-            confusion[(label, rating)] += 1
+            confusion[f"{label}->{rating}"] += 1
             if label == rating:
                 correct += 1
                 per[label]["correct"] += 1
@@ -311,6 +311,28 @@ def export_calibration(cfg: Config, results: dict[str, list[dict]], n: int, seed
     return out
 
 
+CURVE_THRESHOLDS = (0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.97, 0.99)
+
+
+def precision_curve(preds: dict[str, tuple[str | None, float]], ratings: dict[str, str],
+                    thresholds: tuple[float, ...] = CURVE_THRESHOLDS) -> dict[str, list[dict]]:
+    """Per predicted class, precision against the ratings when only predictions at or above each confidence are kept
+    (kept / correct counts included: a precision over a handful of clips is not a measurement)."""
+    by_class: dict = defaultdict(list)
+    for cid, (label, conf) in preds.items():
+        if label is not None and cid in ratings:
+            by_class[label].append((conf, ratings[cid] == label))
+    out = {}
+    for label, items in by_class.items():
+        rows = []
+        for thr in thresholds:
+            kept = [ok for c, ok in items if c >= thr]
+            if kept:
+                rows.append({"threshold": thr, "kept": len(kept), "correct": sum(kept), "precision": round(sum(kept) / len(kept), 4)})
+        out[label] = rows
+    return out
+
+
 def score_calibration(cfg: Config, ratings_file: Path, target_precision: float = 0.76) -> dict:
     """Grade every scorer (emotion2vec+, EmpathicInsight-Voice where scored, their agreement) against the ratings."""
     rows = [r for name, root in _roots(cfg) for r in _load_jsonl(root / "emotions.jsonl")]
@@ -325,7 +347,8 @@ def score_calibration(cfg: Config, ratings_file: Path, target_precision: float =
     for name, preds in scorers.items():
         m = score_ratings(preds, ratings)
         thr = suggest_thresholds(preds, ratings, target_precision) if name == "emotion2vec+" else {}
-        out[name] = {"metrics": m, "thresholds": thr}
+        curve = precision_curve(preds, ratings) if thr else {}
+        out[name] = {"metrics": m, "thresholds": thr, "curve": curve}
         lines += [f"## {name}", "", f"{m['n']} rated clips scored; labelled {m['labelled']}, accuracy on those "
                   f"{m['accuracy']}; abstained on {m['abstained']}.", "",
                   "| class | predicted | correct | precision | rated | recall |" + (" confidence for the target |" if thr else ""),
@@ -333,10 +356,18 @@ def score_calibration(cfg: Config, ratings_file: Path, target_precision: float =
         for c, d in m["per_class"].items():
             lines.append(f"| {c} | {d['predicted']} | {d['correct']} | {d['precision']} | {d['rated']} | {d['recall']} |"
                          + (f" {thr.get(c)} |" if thr else ""))
-        lines += ["", "Confusion (predicted -> rated): " + ", ".join(f"{p}->{r} {n}" for (p, r), n in sorted(m["confusion"].items())), ""]
+        if curve:
+            lines += ["", "Precision when only predictions at or above a confidence are kept (correct / kept rated clips):", "",
+                      "| class | " + " | ".join(f">= {t}" for t in CURVE_THRESHOLDS) + " |", "|---|" + "---|" * len(CURVE_THRESHOLDS)]
+            for c in ("angry", "sad", "happy"):
+                cells = {d["threshold"]: f"{d['precision']:.2f} ({d['correct']}/{d['kept']})" for d in curve.get(c, [])}
+                lines.append(f"| {c} | " + " | ".join(cells.get(t, "-") for t in CURVE_THRESHOLDS) + " |")
+        lines += ["", "Confusion (predicted -> rated): " + ", ".join(f"{k} {n}" for k, n in sorted(m["confusion"].items())), ""]
     lines += ["Use: `--auto-conf angry=X,sad=Y,happy=Z` on the manifest with the suggested emotion2vec+ confidences; drop a "
-              "class whose precision never reaches the target (`None`). If agreement scores better than emotion2vec+ alone, "
-              "run `ttsdata emotions --eiv-all --require-agreement`.", ""]
+              "class whose precision never reaches the target (`None`). Read the suggestion against the curve: with 60 rated "
+              "predictions per class a precision is only known to about +-0.11, so prefer a cut-off that still keeps ~20 "
+              "rated clips. If agreement scores better than emotion2vec+ alone, run `ttsdata emotions --eiv-all "
+              "--require-agreement`.", ""]
     text = "\n".join(lines)
     (cfg.dataset_dir / "EMOTION_CALIBRATION.md").write_text(text, encoding="utf-8")
     print(text)

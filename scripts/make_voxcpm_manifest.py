@@ -119,7 +119,7 @@ def main() -> int:
     ap.add_argument("--label-max-share", type=float, default=0.4, help="stage 2: labelled rows at most this share of train")
     ap.add_argument("--auto-styles", action="store_true", help="stage 2: angry / sad / happy prefixes from ttsdata emotions (emotions.jsonl)")
     ap.add_argument("--auto-min-conf", type=float, default=0.6, help="confidence a clip needs for an automatic style")
-    ap.add_argument("--auto-conf", default="", help="per-class overrides, e.g. angry=0.8,sad=0.7 (from the calibration report)")
+    ap.add_argument("--auto-conf", default="", help="per-class overrides from the calibration report; 2026-10-27: angry=0.70,sad=0.85,happy=0.99")
     ap.add_argument("--max-hours", type=float, default=60.0)
     ap.add_argument("--max-series-share", type=float, default=0.4)
     ap.add_argument("--ref-ratio", type=float, default=0.4)
