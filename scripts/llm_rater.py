@@ -22,7 +22,8 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.emotion import parse_ratings  # noqa: E402
-from ttsdata.llmrater import Pacer, backoff_seconds, parse_response, quota_kind, report, request_body  # noqa: E402
+from ttsdata.llmrater import (Pacer, backoff_seconds, parse_batch_response, parse_response, quota_kind, report,  # noqa: E402
+                              request_body, request_body_batch)
 
 API = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -82,6 +83,7 @@ def main():
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--rpm", type=float, default=8.0, help="requests per minute ceiling (free tier is low)")
     ap.add_argument("--workers", type=int, default=1, help="parallel requests in flight (each call can take 30 s)")
+    ap.add_argument("--per-request", type=int, default=1, help="clips per request (free tier: 20 requests a day per model)")
     ap.add_argument("--thinking", default="", help="Gemini 3.x thinking: low / minimal / off (thinkingBudget 0); '' leaves the model default")
     ap.add_argument("--key-file", default="")
     ap.add_argument("--list-models", action="store_true")
@@ -119,10 +121,14 @@ def main():
         pacer = Pacer(a.rpm)
         stop = {"reason": ""}
 
-        def rate(cid):
+        def rate(group):
+            """One request for a group of clip ids -> (group, parsed rows or None)."""
             if stop["reason"]:
-                return cid, None
-            body = request_body((clips / files[cid]).read_bytes(), "audio/wav")
+                return group, None
+            if len(group) == 1:
+                body = request_body((clips / files[group[0]]).read_bytes(), "audio/wav")
+            else:
+                body = request_body_batch([(cid, (clips / files[cid]).read_bytes()) for cid in group], "audio/wav")
             if a.thinking == "off":
                 body["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}   # 3 s per clip instead of 30
             elif a.thinking:
@@ -130,20 +136,26 @@ def main():
             resp, reason = post(session, url, body, key, pacer)
             if resp is None:
                 stop["reason"] = reason
-            return cid, resp
+                return group, None
+            return group, [parse_response(resp)] if len(group) == 1 else parse_batch_response(resp, len(group))
 
+        groups = [pending[i:i + a.per_request] for i in range(0, len(pending), a.per_request)]
         n = 0
         with out.open("a", encoding="utf-8") as f, ThreadPoolExecutor(max_workers=a.workers) as pool:
-            for fut in as_completed([pool.submit(rate, cid) for cid in pending]):
-                cid, resp = fut.result()
-                if resp is None:
+            for fut in as_completed([pool.submit(rate, g) for g in groups]):
+                group, parsed = fut.result()
+                if parsed is None:
                     continue
-                row = {"id": cid, "file": files[cid], "model": a.model, **parse_response(resp)}
-                done[cid] = row
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                for cid, p in zip(group, parsed):
+                    if p["label"] is None and len(group) > 1:
+                        print(f"  {cid}: no answer in the batch reply, left for a re-run", flush=True)
+                        continue   # not cached: the next run asks again
+                    row = {"id": cid, "file": files[cid], "model": a.model, **p}
+                    done[cid] = row
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                    n += 1
+                    print(f"  {n}/{len(pending)} {cid}: {row['label']} {row['conf']} '{row['style']}'", flush=True)
                 f.flush()
-                n += 1
-                print(f"  {n}/{len(pending)} {cid}: {row['label']} {row['conf']} '{row['style']}'", flush=True)
         if stop["reason"]:
             print(f"stopped: {stop['reason']}; re-run later, the cache resumes")
     elif pending:

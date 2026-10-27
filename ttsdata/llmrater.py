@@ -29,6 +29,19 @@ SCHEMA = {
                    "style": {"type": "STRING"}},
     "required": ["emotion", "confidence", "style"],
 }
+# several clips per request: the free tier allows 20 requests a day per model, so 15-25 clips share one call
+PROMPT_BATCH = (
+    "You will hear {n} short, unrelated clips of Turkish speech from TV dramas, each introduced as 'Clip k:'. "
+    "Judge each clip on its own and answer for every clip. " + PROMPT.split("You hear a short clip of Turkish speech taken from a TV drama. ", 1)[1]
+    + " Return a JSON array with exactly {n} objects, one per clip, each with the clip number."
+)
+SCHEMA_BATCH = {
+    "type": "ARRAY",
+    "items": {"type": "OBJECT",
+              "properties": {"clip": {"type": "INTEGER"}, "emotion": {"type": "STRING", "enum": list(LABELS)},
+                             "confidence": {"type": "NUMBER"}, "style": {"type": "STRING"}},
+              "required": ["clip", "emotion", "confidence", "style"]},
+}
 
 
 def request_body(audio: bytes, mime: str) -> dict:
@@ -37,6 +50,50 @@ def request_body(audio: bytes, mime: str) -> dict:
                 {"text": PROMPT},
                 {"inline_data": {"mime_type": mime, "data": base64.b64encode(audio).decode()}}]}],
             "generationConfig": {"responseMimeType": "application/json", "responseSchema": SCHEMA, "temperature": 0}}
+
+
+def request_body_batch(items: list[tuple[str, bytes]], mime: str) -> dict:
+    """One generateContent body carrying several clips, each announced as 'Clip k:'; JSON array output."""
+    parts = [{"text": PROMPT_BATCH.format(n=len(items))}]
+    for k, (_, audio) in enumerate(items, 1):
+        parts += [{"text": f"Clip {k}:"}, {"inline_data": {"mime_type": mime, "data": base64.b64encode(audio).decode()}}]
+    return {"contents": [{"role": "user", "parts": parts}],
+            "generationConfig": {"responseMimeType": "application/json", "responseSchema": SCHEMA_BATCH, "temperature": 0}}
+
+
+def _one(d: dict) -> dict:
+    lab = str(d.get("emotion", "")).strip().lower()
+    try:
+        conf = float(d.get("confidence"))
+    except (TypeError, ValueError):
+        conf = None
+    return {"label": lab if lab in COARSE else "other", "conf": None if conf is None else round(min(1.0, max(0.0, conf)), 3),
+            "style": str(d.get("style") or "").strip()}
+
+
+def parse_batch_response(resp: dict, n: int) -> list[dict]:
+    """A batch reply -> n dicts in clip order (label None where the model gave no answer for that clip)."""
+    cands = resp.get("candidates") or []
+    finish = cands[0].get("finishReason") if cands else (resp.get("promptFeedback") or {}).get("blockReason")
+    text = "".join(p.get("text", "") for c in cands[:1] for p in (c.get("content") or {}).get("parts", []))
+    tokens = (resp.get("usageMetadata") or {}).get("totalTokenCount")
+    base = {"label": None, "conf": None, "style": "", "finish": finish, "tokens": tokens // n if tokens else tokens, "raw": text}
+    out = [dict(base) for _ in range(n)]
+    m = re.search(r"\[.*\]", text, re.S)
+    if not m:
+        return out
+    try:
+        arr = json.loads(m.group(0))
+    except json.JSONDecodeError:
+        return out
+    for d in arr if isinstance(arr, list) else []:
+        try:
+            k = int(d.get("clip"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if 1 <= k <= n:
+            out[k - 1].update(_one(d))
+    return out
 
 
 def parse_response(resp: dict) -> dict:

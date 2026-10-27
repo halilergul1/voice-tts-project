@@ -86,3 +86,26 @@ def test_quota_kind_reads_the_429_details():
     minute = {"error": {"details": [{"violations": [{"quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]}]}}
     assert quota_kind(day) == "day" and quota_kind(minute) == "minute" and quota_kind({"error": {}}) == "unknown"
     assert quota_kind({"error": {"message": "Quota exceeded for ... per day ..."}}) == "day"
+
+
+def test_batch_request_numbers_the_clips_and_asks_for_an_array():
+    from ttsdata.llmrater import PROMPT_BATCH, request_body_batch
+    body = request_body_batch([("a", b"AAA"), ("b", b"BBB")], "audio/wav")
+    parts = body["contents"][0]["parts"]
+    texts = [p["text"] for p in parts if "text" in p]
+    assert texts == [PROMPT_BATCH.format(n=2), "Clip 1:", "Clip 2:"]            # numbered, no transcript
+    assert [p["inline_data"]["data"] for p in parts if "inline_data" in p] == [base64.b64encode(b"AAA").decode(), base64.b64encode(b"BBB").decode()]
+    schema = body["generationConfig"]["responseSchema"]
+    assert schema["type"] == "ARRAY" and schema["items"]["properties"]["clip"]["type"] == "INTEGER"
+    assert schema["items"]["properties"]["emotion"]["enum"] == list(LABELS)
+
+
+def test_parse_batch_response_matches_answers_to_clips():
+    from ttsdata.llmrater import parse_batch_response
+    text = '[{"clip": 2, "emotion": "sad", "confidence": 0.7, "style": "tearful"}, {"clip": 1, "emotion": "angry", "confidence": 0.9, "style": "shouting"}]'
+    out = parse_batch_response(_resp(text), n=3)
+    assert [o["label"] for o in out] == ["angry", "sad", None]                 # clip 3 unanswered -> None
+    assert out[0]["style"] == "shouting" and out[1]["conf"] == 0.7
+    assert all(o["tokens"] == 320 // 3 for o in out) and out[2]["raw"] == text
+    assert [o["label"] for o in parse_batch_response(_resp("nonsense"), n=2)] == [None, None]
+    assert parse_batch_response({"candidates": [{"finishReason": "SAFETY"}]}, n=1)[0]["finish"] == "SAFETY"
