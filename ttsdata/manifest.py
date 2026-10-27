@@ -103,6 +103,22 @@ def combine_events(units: list[dict], events: list[dict], quality: dict[str, dic
     return out
 
 
+def restore_bases(rows: list[dict], events_ok: set[str], units: list[dict], quality: dict[str, dict], **tier_kw) -> list[dict]:
+    """Stage 2: an event-extended row whose tag will not be written (rarer than --min-tag) would train an untagged
+    laugh as plain speech, so it leaves the slice and its base clip (from the units before combine_events) returns in
+    its place when that base passes the tier on its own."""
+    by_id = {u["id"]: u for u in units}
+    out = []
+    for r in rows:
+        if r.get("root") != "dataset_events" or r.get("tag") in events_ok:
+            out.append(r)
+            continue
+        base = by_id.get(r.get("base"))
+        if base is not None and select_tier([base], quality, **tier_kw):
+            out.append(base)
+    return out
+
+
 def stage_filter(rows: list[dict], tags: dict[str, dict] | None, stage: int) -> list[dict]:
     """Stage 1 (plain prosody): no event-extended rows and no rows whose subtitle label marks a strong delivery
     (they would be trained with plain text that sounds emotional). Stage 2: everything."""

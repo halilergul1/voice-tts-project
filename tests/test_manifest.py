@@ -133,3 +133,15 @@ def test_stage_filter_drops_strong_styles_and_events_in_stage_1():
     tags = {"c0": {"style": ["crying"], "flags": [], "events": []}, "c1": {"style": ["dialect"], "flags": [], "events": []}}
     assert [r["id"] for r in stage_filter(rows, tags, stage=1)] == ["c1"]
     assert [r["id"] for r in stage_filter(rows, tags, stage=2)] == ["c0", "c1", "c2_laugh"]
+
+
+def test_restore_bases_returns_the_base_when_the_tag_is_not_written():
+    from ttsdata.manifest import restore_bases
+    units = [{**R(0), "root": "dataset"}, {**R(1), "root": "dataset"}, {**R(2), "root": "dataset"}, {**R(3), "duration": 1.5, "root": "dataset"}]
+    ev = lambda i, base, tag: {**R(i), "id": f"{base}_{tag}", "base": base, "tag": tag, "root": "dataset_events", "duration": 6.0}  # noqa: E731
+    rows = [ev(10, "c0", "laugh"), units[1], ev(12, "c2", "cry"), ev(13, "c3", "cry")]
+    q = {r["id"]: Q(0) for r in units + rows}
+    out = restore_bases(rows, {"laugh"}, units, q)
+    # laugh is written: its row stays; cry is not: c2 comes back in its place, c3 (1.5 s) fails the tier and is gone
+    assert [r["id"] for r in out] == ["c0_laugh", "c1", "c2"] and out[2]["root"] == "dataset"
+    assert [r["id"] for r in restore_bases(rows, {"laugh", "cry"}, units, q)] == ["c0_laugh", "c1", "c2_cry", "c3_cry"]

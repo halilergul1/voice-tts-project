@@ -30,7 +30,7 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.labels import EVENT_TAG, allowed_labels, auto_styles, labelled_text, oversample  # noqa: E402
-from ttsdata.manifest import (combine_events, combine_units, manifest_row, pair_references, replay_text,  # noqa: E402
+from ttsdata.manifest import (combine_events, combine_units, manifest_row, pair_references, replay_text, restore_bases,  # noqa: E402
                               stage_filter, tier_funnel, validate_row)
 
 
@@ -171,6 +171,7 @@ def main() -> int:
         print("[warn] no soundtags.jsonl: run ttsdata soundtags to drop overlapping / foreign / censored clips")
     tier_kw = dict(max_cer=a.max_cer, min_cluster=a.min_cluster, soundtags=soundtags, stage=a.stage)
     rows = combine_units(singles, merged, quality, **tier_kw)
+    units = rows  # kept so an event row whose tag is not written can hand its place back to its base clip
     events_root = Path(a.events_root) if a.events_root and a.stage >= 2 else None
     events = []
     if events_root and (events_root / "metadata.jsonl").exists():
@@ -186,10 +187,6 @@ def main() -> int:
     funnel = tier_funnel(rows, quality, **tier_kw)
     tier = funnel[-1][1]
     slice_rows = cap_hours(tier, a.max_hours, a.max_series_share, a.seed)
-    train_rows = [r for r in slice_rows if r.get("split") != "val"]
-    val_rows = [r for r in slice_rows if r.get("split") == "val"]
-    pairs = {**pair_references(train_rows, a.ref_ratio, a.seed), **pair_references(val_rows, a.ref_ratio, a.seed)}
-    by_id = {r["id"]: r for r in slice_rows}
     root_of = {"dataset": os.path.relpath(wav_dir, out),
                "dataset_long": os.path.relpath(long_root / a.long_wavs, out) if long_root else None,
                "dataset_events": os.path.relpath(events_root / a.events_wavs, out) if events_root else None}
@@ -221,7 +218,12 @@ def main() -> int:
                   if (e.get("where") or "").startswith("gap:") and e.get("who_match") is not False]
     styles_ok, events_ok = allowed_labels(styles_seen, tags_seen, a.min_style, a.min_tag) if a.stage >= 2 else (set(), set())
     if a.stage >= 2:  # an event clip whose tag is not written would carry an untagged sound: back to its base
-        slice_rows = [r for r in slice_rows if r["root"] != "dataset_events" or r["tag"] in events_ok]
+        slice_rows = restore_bases(slice_rows, events_ok, units, quality, **tier_kw)
+    # reference pairs are drawn after the slice is final, so no row points at a clip that left it
+    train_rows = [r for r in slice_rows if r.get("split") != "val"]
+    val_rows = [r for r in slice_rows if r.get("split") == "val"]
+    pairs = {**pair_references(train_rows, a.ref_ratio, a.seed), **pair_references(val_rows, a.ref_ratio, a.seed)}
+    by_id = {r["id"]: r for r in slice_rows}
 
     train, val = [], []
     n_labelled = 0
