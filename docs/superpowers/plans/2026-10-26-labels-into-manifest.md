@@ -210,6 +210,16 @@ round over happy >= 0.95 and sad >= 0.80 clips (60 each) would firm both up. Emp
 the cut alone) while halving recall and leaves happy at 0.64 — dropped like PANNs; `--eiv` stays opt-in and is not run
 on the catalogue. The rater also used `other` 8 times (surprise / fear / sarcasm) and `other/sad` once; those count
 against precision, which is the conservative reading.
+
+Audio-LLM check (2026-10-27, `scripts/llm_rater.py`): Gemini 3.5 Flash-Lite heard all 299 clips blind (no transcript,
+25 clips per request because the free tier allows 20 requests a day per model). Accuracy 0.50 on the 292 it labelled;
+precision angry 0.44 (97 calls, 35 of them rated neutral), sad 0.31, happy 0.35; its self-reported confidence is flat
+(angry 0.44 at >= 0.6, 0.46 at >= 0.9), so no cut-off rescues it; agreement with emotion2vec+ 39 %. Gemini 3.5 Flash
+on the 12 clips its quota allowed: 7 right. Verdict: the LLM over-calls emotion on neutral TV dialogue exactly as
+EmpathicInsight did, and its delivery words ("firm command", "calm statement") read well but are no more reliable than
+its label, so neither LLM labels nor LLM captions go into the manifest. emotion2vec+ with the calibrated cuts stays.
+Answers and report kept in `calibration/` (`llm_gemini-3.5-flash-lite_2026-10-27.*`). Gemini 2.5 models are closed
+to new API keys; Claude's API takes no audio.
 Gender per speaker cluster (pitch + classifier) is not built; the Data-Speech route from the report remains open.
 
 
