@@ -79,11 +79,12 @@ class Pacer:
     """Spaces request starts at most `rpm` per minute across threads: wait() blocks until a slot is free and
     returns the seconds it slept."""
 
-    def __init__(self, rpm: float, clock=None, sleep=None):
+    def __init__(self, rpm: float, clock=None, sleep=None, max_gap: float = 60.0):
         import threading
         import time
 
-        self.gap = 60.0 / rpm
+        self.min_gap = self.gap = 60.0 / rpm
+        self.max_gap = max_gap
         self.clock = clock or time.monotonic
         self.sleep = sleep or time.sleep
         self.lock = threading.Lock()
@@ -97,6 +98,29 @@ class Pacer:
         if delay:
             self.sleep(delay)
         return delay
+
+    def slow_down(self) -> float:
+        """After a 429: double the gap between starts, up to max_gap."""
+        with self.lock:
+            self.gap = min(self.max_gap, self.gap * 2)
+            return self.gap
+
+    def recover(self) -> None:
+        """After a success: ease the gap back towards the configured rate."""
+        with self.lock:
+            self.gap = max(self.min_gap, self.gap * 0.9)
+
+
+def quota_kind(err: dict) -> str:
+    """Which quota a 429 names: "day" (stop, resume tomorrow), "minute" (slow down) or "unknown"."""
+    e = err.get("error") or {}
+    text = " ".join([str(e.get("message", ""))] + [f"{v.get('quotaMetric', '')} {v.get('quotaId', '')}"
+                                                      for d in e.get("details", []) for v in d.get("violations", [])]).lower()
+    if "perday" in text or "per day" in text or "per_day" in text or "daily" in text:
+        return "day"
+    if "perminute" in text or "per minute" in text or "per_minute" in text:
+        return "minute"
+    return "unknown"
 
 
 def report(model: str, llm_rows: list[dict], e2v: dict[str, tuple[str | None, float]], ratings: dict[str, str],

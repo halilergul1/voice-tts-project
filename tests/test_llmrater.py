@@ -68,3 +68,21 @@ def test_pacer_spaces_request_starts_across_threads():
     now[0] += 60
     assert p.wait() == 0.0                                                 # a long gap owes nothing
     assert slept == [2.0, 2.0]
+
+
+def test_pacer_adapts_to_throttling():
+    from ttsdata.llmrater import Pacer
+    p = Pacer(rpm=30, clock=lambda: 0.0, sleep=lambda s: None, max_gap=10.0)
+    assert p.slow_down() == 4.0 and p.slow_down() == 8.0 and p.slow_down() == 10.0   # doubles, capped
+    for _ in range(40):
+        p.recover()
+    assert p.gap == 2.0                                                                # back to the configured rate
+
+
+def test_quota_kind_reads_the_429_details():
+    from ttsdata.llmrater import quota_kind
+    day = {"error": {"details": [{"violations": [{"quotaMetric": "generativelanguage.googleapis.com/generate_content_free_tier_requests",
+                                                   "quotaId": "GenerateRequestsPerDayPerProjectPerModel-FreeTier"}]}]}}
+    minute = {"error": {"details": [{"violations": [{"quotaId": "GenerateRequestsPerMinutePerProjectPerModel-FreeTier"}]}]}}
+    assert quota_kind(day) == "day" and quota_kind(minute) == "minute" and quota_kind({"error": {}}) == "unknown"
+    assert quota_kind({"error": {"message": "Quota exceeded for ... per day ..."}}) == "day"

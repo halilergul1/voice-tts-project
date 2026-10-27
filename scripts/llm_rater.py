@@ -22,7 +22,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.emotion import parse_ratings  # noqa: E402
-from ttsdata.llmrater import Pacer, backoff_seconds, parse_response, report, request_body  # noqa: E402
+from ttsdata.llmrater import Pacer, backoff_seconds, parse_response, quota_kind, report, request_body  # noqa: E402
 
 API = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -36,25 +36,40 @@ def load_key(a) -> str:
     return key
 
 
-def post(session, url: str, body: dict, key: str, retries: int = 6) -> dict | None:
-    for attempt in range(retries):
+def post(session, url: str, body: dict, key: str, pacer: Pacer, max_wait: float = 1800.0) -> tuple[dict | None, str]:
+    """One paced request with retries: 429 slows the pacer down (a per-day quota stops the run), 5xx and transport
+    errors back off; gives up after max_wait seconds of trying. Returns (response, reason-when-None)."""
+    t0 = time.monotonic()
+    attempt = 0
+    while True:
+        pacer.wait()
         try:
             r = session.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body, timeout=120)
         except requests.exceptions.RequestException as e:  # dropped connection, read timeout: same as a 503
-            wait = backoff_seconds(attempt)
-            print(f"  {type(e).__name__}, waiting {wait:.0f} s", flush=True)
-            time.sleep(wait)
-            continue
-        if r.status_code == 200:
-            return r.json()
-        if r.status_code in (429, 500, 503):
-            ra = r.headers.get("Retry-After")
-            wait = backoff_seconds(attempt, float(ra) if ra else None)
-            print(f"  HTTP {r.status_code}, waiting {wait:.0f} s", flush=True)
-            time.sleep(wait)
-            continue
-        raise SystemExit(f"HTTP {r.status_code}: {r.text[:400]}")
-    return None  # quota: the caller stops and the cache resumes later
+            r = None
+            note = type(e).__name__
+        if r is not None and r.status_code == 200:
+            pacer.recover()
+            return r.json(), ""
+        if r is not None and r.status_code == 429:
+            try:
+                kind = quota_kind(r.json())
+            except ValueError:
+                kind = "unknown"
+            if kind == "day":
+                return None, "daily quota reached"
+            note = f"HTTP 429 ({kind} quota), gap now {pacer.slow_down():.0f} s"
+        elif r is not None and r.status_code in (500, 503):
+            note = f"HTTP {r.status_code}"
+        elif r is not None:
+            raise SystemExit(f"HTTP {r.status_code}: {r.text[:400]}")
+        if time.monotonic() - t0 > max_wait:
+            return None, f"gave up after {max_wait:.0f} s ({note})"
+        ra = r.headers.get("Retry-After") if r is not None else None
+        wait = backoff_seconds(attempt, float(ra) if ra else None)
+        print(f"  {note}, retry in {wait:.0f} s", flush=True)
+        time.sleep(wait)
+        attempt += 1
 
 
 def main():
@@ -102,20 +117,19 @@ def main():
         key = load_key(a)
         url = f"{API}/models/{a.model}:generateContent"
         pacer = Pacer(a.rpm)
-        stop = {"quota": False}
+        stop = {"reason": ""}
 
         def rate(cid):
-            if stop["quota"]:
+            if stop["reason"]:
                 return cid, None
             body = request_body((clips / files[cid]).read_bytes(), "audio/wav")
             if a.thinking == "off":
                 body["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}   # 3 s per clip instead of 30
             elif a.thinking:
                 body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": a.thinking}
-            pacer.wait()
-            resp = post(session, url, body, key)
+            resp, reason = post(session, url, body, key, pacer)
             if resp is None:
-                stop["quota"] = True
+                stop["reason"] = reason
             return cid, resp
 
         n = 0
@@ -130,8 +144,8 @@ def main():
                 f.flush()
                 n += 1
                 print(f"  {n}/{len(pending)} {cid}: {row['label']} {row['conf']} '{row['style']}'", flush=True)
-        if stop["quota"]:
-            print("quota exhausted for now: re-run later, the cache resumes")
+        if stop["reason"]:
+            print(f"stopped: {stop['reason']}; re-run later, the cache resumes")
     elif pending:
         sizes = [len(json.dumps(request_body((clips / files[c]).read_bytes(), "audio/wav"))) for c in pending[:5]]
         print(f"dry run: first bodies {[round(s / 1024) for s in sizes]} KB; nothing sent")
