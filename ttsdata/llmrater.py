@@ -75,6 +75,30 @@ def backoff_seconds(attempt: int, retry_after: float | None = None) -> float:
     return retry_after if retry_after is not None else float(min(60, 5 * 2 ** attempt))
 
 
+class Pacer:
+    """Spaces request starts at most `rpm` per minute across threads: wait() blocks until a slot is free and
+    returns the seconds it slept."""
+
+    def __init__(self, rpm: float, clock=None, sleep=None):
+        import threading
+        import time
+
+        self.gap = 60.0 / rpm
+        self.clock = clock or time.monotonic
+        self.sleep = sleep or time.sleep
+        self.lock = threading.Lock()
+        self.next_at = self.clock()
+
+    def wait(self) -> float:
+        with self.lock:
+            now = self.clock()
+            delay = max(0.0, self.next_at - now)
+            self.next_at = max(now, self.next_at) + self.gap
+        if delay:
+            self.sleep(delay)
+        return delay
+
+
 def report(model: str, llm_rows: list[dict], e2v: dict[str, tuple[str | None, float]], ratings: dict[str, str],
            cost_tokens: int | None = None) -> str:
     """Markdown: the LLM against the ratings, emotion2vec+ on the same clips, how often the two agree, and the

@@ -18,9 +18,11 @@ import sys
 import time
 from pathlib import Path
 
+import requests
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.emotion import parse_ratings  # noqa: E402
-from ttsdata.llmrater import backoff_seconds, parse_response, report, request_body  # noqa: E402
+from ttsdata.llmrater import Pacer, backoff_seconds, parse_response, report, request_body  # noqa: E402
 
 API = "https://generativelanguage.googleapis.com/v1beta"
 
@@ -36,7 +38,13 @@ def load_key(a) -> str:
 
 def post(session, url: str, body: dict, key: str, retries: int = 6) -> dict | None:
     for attempt in range(retries):
-        r = session.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body, timeout=180)
+        try:
+            r = session.post(url, headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body, timeout=120)
+        except requests.exceptions.RequestException as e:  # dropped connection, read timeout: same as a 503
+            wait = backoff_seconds(attempt)
+            print(f"  {type(e).__name__}, waiting {wait:.0f} s", flush=True)
+            time.sleep(wait)
+            continue
         if r.status_code == 200:
             return r.json()
         if r.status_code in (429, 500, 503):
@@ -58,12 +66,13 @@ def main():
     ap.add_argument("--emotions-roots", default="data/dataset,data/dataset_long", help="emotions.jsonl roots for the comparison")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--rpm", type=float, default=8.0, help="requests per minute ceiling (free tier is low)")
+    ap.add_argument("--workers", type=int, default=1, help="parallel requests in flight (each call can take 30 s)")
+    ap.add_argument("--thinking", default="", help="Gemini 3.x thinking: low / minimal / off (thinkingBudget 0); '' leaves the model default")
     ap.add_argument("--key-file", default="")
     ap.add_argument("--list-models", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="build the requests, call nothing")
     a = ap.parse_args()
 
-    import requests
     session = requests.Session()
     if a.list_models:
         r = session.get(f"{API}/models", headers={"x-goog-api-key": load_key(a)}, params={"pageSize": 200}, timeout=60)
@@ -88,23 +97,41 @@ def main():
     print(f"{len(todo)} rated clips, {len(done)} cached, {len(pending)} to send to {a.model}")
 
     if pending and not a.dry_run:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         key = load_key(a)
         url = f"{API}/models/{a.model}:generateContent"
-        gap = 60.0 / a.rpm
-        with out.open("a", encoding="utf-8") as f:
-            for i, cid in enumerate(pending, 1):
-                t0 = time.time()
-                body = request_body((clips / files[cid]).read_bytes(), "audio/wav")
-                resp = post(session, url, body, key)
+        pacer = Pacer(a.rpm)
+        stop = {"quota": False}
+
+        def rate(cid):
+            if stop["quota"]:
+                return cid, None
+            body = request_body((clips / files[cid]).read_bytes(), "audio/wav")
+            if a.thinking == "off":
+                body["generationConfig"]["thinkingConfig"] = {"thinkingBudget": 0}   # 3 s per clip instead of 30
+            elif a.thinking:
+                body["generationConfig"]["thinkingConfig"] = {"thinkingLevel": a.thinking}
+            pacer.wait()
+            resp = post(session, url, body, key)
+            if resp is None:
+                stop["quota"] = True
+            return cid, resp
+
+        n = 0
+        with out.open("a", encoding="utf-8") as f, ThreadPoolExecutor(max_workers=a.workers) as pool:
+            for fut in as_completed([pool.submit(rate, cid) for cid in pending]):
+                cid, resp = fut.result()
                 if resp is None:
-                    print("quota exhausted for now: re-run later, the cache resumes")
-                    break
+                    continue
                 row = {"id": cid, "file": files[cid], "model": a.model, **parse_response(resp)}
                 done[cid] = row
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
                 f.flush()
-                print(f"  {i}/{len(pending)} {cid}: {row['label']} {row['conf']} '{row['style']}'", flush=True)
-                time.sleep(max(0.0, gap - (time.time() - t0)))
+                n += 1
+                print(f"  {n}/{len(pending)} {cid}: {row['label']} {row['conf']} '{row['style']}'", flush=True)
+        if stop["quota"]:
+            print("quota exhausted for now: re-run later, the cache resumes")
     elif pending:
         sizes = [len(json.dumps(request_body((clips / files[c]).read_bytes(), "audio/wav"))) for c in pending[:5]]
         print(f"dry run: first bodies {[round(s / 1024) for s in sizes]} KB; nothing sent")

@@ -57,3 +57,14 @@ def test_report_compares_the_llm_with_emotion2vec():
     assert "# LLM rater: gemini-x" in text and "| angry | 1 | 1 | 1.0 |" in text
     assert "emotion2vec+" in text and "agree" in text.lower() and "shouting" in text
     json.dumps(preds_for_scoring(llm))
+
+
+def test_pacer_spaces_request_starts_across_threads():
+    from ttsdata.llmrater import Pacer
+    now = [100.0]
+    slept = []
+    p = Pacer(rpm=30, clock=lambda: now[0], sleep=lambda s: (slept.append(s), now.__setitem__(0, now[0] + s)))
+    assert p.wait() == 0.0 and p.wait() == 2.0 and p.wait() == 2.0      # 30 rpm -> one start every 2 s
+    now[0] += 60
+    assert p.wait() == 0.0                                                 # a long gap owes nothing
+    assert slept == [2.0, 2.0]
