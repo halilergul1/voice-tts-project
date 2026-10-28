@@ -5,7 +5,7 @@
 # Resumable: each stage writes data/logs/clean_<stage>_done and is skipped when it exists (delete it to redo a stage).
 #   tmux new -d -s clean 'scripts/server_clean_stages.sh >> data/logs/clean_stages.log 2>&1'
 # Env: PY (project venv), SEP_PY (venv with audio-separator: scripts/astrobot_setup_sep.sh), WORKERS, MAX_HOURS,
-#      AUTO_CONF, MIN_TAG (as in server_label_stages.sh), SEP_BATCH (clips per separator call).
+#      AUTO_CONF, MIN_TAG (as in server_label_stages.sh), SEP_BATCH (clips per separator call), SEP_JOBS (workers).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="${PY:-.venv/bin/python}"
@@ -14,7 +14,8 @@ WORKERS="${WORKERS:-12}"
 MAX_HOURS="${MAX_HOURS:-60}"
 AUTO_CONF="${AUTO_CONF:-angry=0.70,sad=0.85,happy=0.99}"
 MIN_TAG="${MIN_TAG:-200}"
-SEP_BATCH="${SEP_BATCH:-256}"
+SEP_BATCH="${SEP_BATCH:-64}"
+SEP_JOBS="${SEP_JOBS:-6}"
 LOG=data/logs
 mkdir -p "$LOG"
 RAW="data/voxcpm_rawwavs data/voxcpm_stage2_rawwavs"
@@ -56,10 +57,22 @@ keep_raw() {  # move the raw-wav manifests aside once (same depth under data/, s
     done
 }
 
+separate() {  # separate <root>: SEP_JOBS parallel workers (one keeps the GPU mostly idle), then merge their results
+    local root=$1 k rc=0 pids=()
+    for k in $(seq 0 $((SEP_JOBS - 1))); do
+        "$SEP_PY" scripts/separate_vocals.py --root "$root" --manifests "$MANIFESTS" --batch "$SEP_BATCH" \
+            --shard "$k/$SEP_JOBS" > "$LOG/clean_sep_$(basename "$root")_$k.log" 2>&1 &
+        pids+=($!)
+    done
+    for k in "${pids[@]}"; do wait "$k" || rc=$?; done
+    "$SEP_PY" scripts/separate_vocals.py --root "$root" --merge || rc=$?  # merge what finished, even after a failure
+    return "$rc"
+}
+
 stage keep_raw      keep_raw
-stage sep_events    "$SEP_PY" scripts/separate_vocals.py --root data/dataset_events --manifests "$MANIFESTS" --batch "$SEP_BATCH"
-stage sep_long      "$SEP_PY" scripts/separate_vocals.py --root data/dataset_long --manifests "$MANIFESTS" --batch "$SEP_BATCH"
-stage sep_dataset   "$SEP_PY" scripts/separate_vocals.py --root data/dataset --manifests "$MANIFESTS" --batch "$SEP_BATCH"
+stage sep_events    separate data/dataset_events
+stage sep_long      separate data/dataset_long
+stage sep_dataset   separate data/dataset
 stage quality_events audit data/dataset_events
 stage quality_long   audit data/dataset_long
 stage quality        audit data/dataset

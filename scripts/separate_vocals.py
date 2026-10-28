@@ -8,7 +8,10 @@ manifests use from this root (audio + ref_audio), e.g. the 60 h training slices 
 
 Run inside a venv with audio-separator (the trainer venv is not needed):
   .venv-sep/bin/python scripts/separate_vocals.py --root data/dataset [--limit 50] [--model <ckpt>] [--threshold-db -25]
-      [--manifests data/voxcpm/train.jsonl,data/voxcpm/val.jsonl]
+      [--manifests data/voxcpm/train.jsonl,data/voxcpm/val.jsonl] [--shard K/N]
+Parallel: N processes with --shard 0/N .. N-1/N each clean every N-th clip and append their results to
+<root>/separation.shard<K>of<N>.jsonl instead of rewriting quality.jsonl; then one --merge run folds those files into
+quality.jsonl and removes them. (One process keeps the GPU mostly idle: short clips are bound by file handling.)
 """
 from __future__ import annotations
 
@@ -24,7 +27,8 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.separation import choose_source, loudness_normalize, manifest_ids, relative_loudness_db  # noqa: E402
+from ttsdata.separation import (alias, choose_source, loudness_normalize, manifest_ids, merge_separation,  # noqa: E402
+                                relative_loudness_db, shard, stems_for)
 
 DEFAULT_MODEL = "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
 
@@ -48,19 +52,6 @@ def _rms(x: np.ndarray) -> float:
     return float(np.sqrt(np.mean(x.astype(np.float64) ** 2))) if len(x) else 0.0
 
 
-def _stems(output_files: list[str], cid: str) -> tuple[Path | None, Path | None]:
-    voc = ins = None
-    for f in output_files:
-        name = Path(f).name
-        if not name.startswith(cid + "_"):
-            continue
-        if "(Vocals)" in name:
-            voc = Path(f)
-        elif "(Instrumental)" in name:
-            ins = Path(f)
-    return voc, ins
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="data/dataset")
@@ -73,10 +64,25 @@ def main() -> int:
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--manifests", default="", help="comma-separated manifest jsonl files: only the clips they use")
+    ap.add_argument("--shard", default="", help="K/N: clean part K of N (0-based) and write a shard result file")
+    ap.add_argument("--merge", action="store_true", help="fold <root>/separation.shard*.jsonl into quality.jsonl and exit")
     a = ap.parse_args()
     root = Path(a.root)
     src_dir, out_dir = root / a.wavs, root / a.out
     out_dir.mkdir(parents=True, exist_ok=True)
+    qfile = root / "quality.jsonl"
+    if a.merge:
+        files = sorted(root.glob("separation.shard*.jsonl"))
+        rows = [json.loads(l) for f in files for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
+        quality = {}
+        if qfile.exists():
+            quality = {q["id"]: q for q in map(json.loads, filter(str.strip, qfile.read_text(encoding="utf-8").splitlines()))}
+        _write_quality(qfile, merge_separation(quality, rows))
+        for f in files:
+            f.unlink()
+        n_sep = sum(1 for r in rows if r.get("source") == "separated")
+        print(f"merged {len(rows)} clips from {len(files)} shard files into {qfile} ({n_sep} use separated vocals)")
+        return 0
 
     rows = [json.loads(l) for l in (root / "metadata.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     if a.manifests:
@@ -89,11 +95,15 @@ def main() -> int:
     if a.limit:
         rows = rows[: a.limit]
     todo = [r["id"] for r in rows if not (out_dir / f"{r['id']}.wav").exists()]
+    shard_file = None
+    if a.shard:
+        k, n = (int(x) for x in a.shard.split("/"))
+        todo = shard(todo, k, n)
+        shard_file = (root / f"separation.shard{k}of{n}.jsonl").open("a", encoding="utf-8")
     print(f"{len(rows)} clips, {len(todo)} to separate ({len(rows) - len(todo)} already in {out_dir})")
 
-    qfile = root / "quality.jsonl"
     quality: dict[str, dict] = {}
-    if qfile.exists():
+    if qfile.exists() and not shard_file:  # a shard worker only appends its own results
         for l in qfile.read_text(encoding="utf-8").splitlines():
             if l.strip():
                 q = json.loads(l)
@@ -109,11 +119,15 @@ def main() -> int:
             music_dbs, n_sep = [], 0
             for b in range(0, len(todo), a.batch):
                 ids = todo[b:b + a.batch]
-                outputs = sep.separate([str(src_dir / f"{cid}.wav") for cid in ids])
+                links = tmp / "in"
+                links.mkdir(exist_ok=True)
+                for j, cid in enumerate(ids):
+                    os.symlink((src_dir / f"{cid}.wav").resolve(), links / f"{alias(j)}.wav")
+                outputs = sep.separate([str(links / f"{alias(j)}.wav") for j in range(len(ids))])
                 outputs = [str(tmp / f) if not Path(f).is_absolute() else f for f in outputs]
-                for cid in ids:
+                for j, cid in enumerate(ids):
                     y, sr = _read(src_dir / f"{cid}.wav")
-                    voc_p, ins_p = _stems(outputs, cid)
+                    voc_p, ins_p = stems_for(outputs, alias(j))
                     vocal_ratio = None
                     if voc_p is None or ins_p is None:
                         print(f"[warn] {cid}: stems not found, keeping original")
@@ -136,12 +150,20 @@ def main() -> int:
                     sf.write(out_dir / f"{cid}.wav", chosen, sr, subtype="PCM_16")
                     q = quality.setdefault(cid, {"id": cid})
                     q["music_db"], q["source"], q["vocal_ratio"] = music_db, source, vocal_ratio
+                    if shard_file:
+                        shard_file.write(json.dumps({"id": cid, "music_db": music_db, "source": source,
+                                                     "vocal_ratio": vocal_ratio}) + "\n")
+                        shard_file.flush()
                     if music_db is not None:
                         music_dbs.append(music_db)
                     n_sep += source == "separated"
-                for f in tmp.iterdir():
+                for f in links.iterdir():
                     f.unlink()
-                _write_quality(qfile, quality)  # after every batch: a killed run keeps music_db for what it wrote
+                for f in tmp.iterdir():
+                    if f.is_file():
+                        f.unlink()
+                if not shard_file:
+                    _write_quality(qfile, quality)  # after every batch: a killed run keeps music_db for what it wrote
                 print(f"[{min(b + a.batch, len(todo))}/{len(todo)}] separated so far: {n_sep}")
             if music_dbs:
                 md = np.array(music_dbs)
@@ -151,7 +173,9 @@ def main() -> int:
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
-    if quality:
+    if shard_file:
+        shard_file.close()  # quality.jsonl is left to the --merge run
+    elif quality:
         _write_quality(qfile, quality)
     return 0
 

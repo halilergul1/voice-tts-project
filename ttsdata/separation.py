@@ -66,3 +66,40 @@ def manifest_ids(rows: list[dict], root_name: str) -> set[str]:
             if len(parts) >= 3 and parts[-3] == root_name and parts[-1].endswith(".wav"):
                 ids.add(parts[-1][:-4])
     return ids
+
+
+def shard(ids: list[str], k: int, n: int) -> list[str]:
+    """Part k of n of the ids (sorted, every n-th): parallel separator processes split one clip list this way."""
+    return sorted(ids)[k::n]
+
+
+def merge_separation(quality: dict[str, dict], rows: list[dict]) -> dict[str, dict]:
+    """Fold per-clip separation results (music_db, source, vocal_ratio) from shard files into quality rows."""
+    for r in rows:
+        q = quality.setdefault(r["id"], {"id": r["id"]})
+        for key in ("music_db", "source", "vocal_ratio"):
+            q[key] = r.get(key)
+    return quality
+
+
+def alias(k: int) -> str:
+    """Temporary input name for the k-th clip of a separator call. audio-separator rewrites names in its outputs
+    (`EL__oZFI0VE_00674` comes back as `EL_oZFI0VE_00674`), so clips go in as numbered links and stems are found
+    by that number."""
+    return f"{k:05d}"
+
+
+def stems_for(output_files: list[str], key: str):
+    """(vocals, instrumental) paths among a separator call's outputs for the input named `key`; None when missing."""
+    from pathlib import Path
+
+    voc = ins = None
+    for f in output_files:
+        name = Path(f).name
+        if not name.startswith(key + "_"):
+            continue
+        if "(Vocals)" in name:
+            voc = Path(f)
+        elif "(Instrumental)" in name:
+            ins = Path(f)
+    return voc, ins
