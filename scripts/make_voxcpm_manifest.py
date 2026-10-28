@@ -8,6 +8,8 @@ flagged by `ttsdata soundtags` as overlapping / foreign / unintelligible / censo
 --stage 2 (expressive): verified event-extended rows (--events-root, --event-evidence) replace their base clips,
 Turkish style prefixes "(ağlayarak)" and inline tags "[gülme]" are written for labels frequent enough in the slice
 (--min-style / --min-tag), labelled rows are oversampled (--label-repeat, capped by --label-max-share).
+Stage 2 slice: labelled clips first (--label-first, rarest label first, --label-quota per label), then a random
+fill of unlabelled clips, so a 60 h sample of a ~350 h tier keeps the rare event tags.
 Also writes <out>/tier_report.md and data/eval/corpus_heldout.txt (val-set sentences for scripts/eval_tts.py).
 
 usage: .venv/bin/python scripts/make_voxcpm_manifest.py --root data/dataset --out data/voxcpm --wavs wavs_clean \
@@ -21,7 +23,7 @@ import os
 import random
 import sys
 import tarfile
-from collections import defaultdict
+from collections import Counter, defaultdict
 from math import gcd
 from pathlib import Path
 
@@ -29,8 +31,9 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.labels import EVENT_TAG, allowed_labels, auto_styles, labelled_text, oversample  # noqa: E402
-from ttsdata.manifest import (combine_events, combine_units, manifest_row, pair_references, replay_text, restore_bases,  # noqa: E402
+from ttsdata.labels import EVENT_TAG, STYLE_PREFIX, allowed_labels, auto_styles, labelled_text, oversample  # noqa: E402
+from ttsdata.manifest import (cap_hours, combine_events, combine_units, labels_first, manifest_row,  # noqa: E402
+                              pair_references, replay_text, restore_bases,
                               stage_filter, tier_funnel, validate_row)
 
 
@@ -74,33 +77,6 @@ def fetch_fleurs(out_dir: Path, min_dur: float = 3.0, max_dur: float = 20.0, tar
     return n
 
 
-def cap_hours(rows: list[dict], max_hours: float, max_series_share: float, seed: int) -> list[dict]:
-    """Seeded sample of rows totalling about max_hours, no series above max_series_share of it."""
-    total = sum(r["duration"] for r in rows) / 3600
-    if max_hours <= 0 or total <= max_hours:
-        return rows
-    rng = random.Random(seed)
-    by_series: dict[str, list[dict]] = defaultdict(list)
-    for r in rows:
-        by_series[r["series"]].append(r)
-    hours = {s: sum(r["duration"] for r in v) / 3600 for s, v in by_series.items()}
-    alloc = {s: min(h, max_series_share * max_hours) for s, h in hours.items()}
-    scale = max_hours / sum(alloc.values())
-    if scale < 1:
-        alloc = {s: a * scale for s, a in alloc.items()}
-    out = []
-    for s, v in by_series.items():
-        v = sorted(v, key=lambda r: r["id"])
-        rng.shuffle(v)
-        acc = 0.0
-        for r in v:
-            if acc >= alloc[s] * 3600:
-                break
-            out.append(r)
-            acc += r["duration"]
-    return sorted(out, key=lambda r: r["id"])
-
-
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default="data/dataset")
@@ -117,6 +93,9 @@ def main() -> int:
     ap.add_argument("--min-tag", type=int, default=300, help="instances an event tag needs in the slice to be written")
     ap.add_argument("--label-repeat", type=int, default=3, help="stage 2: labelled rows repeated this many times")
     ap.add_argument("--label-max-share", type=float, default=0.4, help="stage 2: labelled rows at most this share of train")
+    ap.add_argument("--label-first", action=argparse.BooleanOptionalAction, default=True,
+                    help="stage 2: take labelled clips first (rarest label first), then fill with unlabelled clips at random")
+    ap.add_argument("--label-quota", type=int, default=3000, help="stage 2 --label-first: clips taken first per label")
     ap.add_argument("--auto-styles", action="store_true", help="stage 2: angry / sad / happy prefixes from ttsdata emotions (emotions.jsonl)")
     ap.add_argument("--auto-min-conf", type=float, default=0.6, help="confidence a clip needs for an automatic style")
     ap.add_argument("--auto-conf", default="", help="per-class overrides from the calibration report; 2026-10-27: angry=0.70,sad=0.85,happy=0.99")
@@ -186,7 +165,6 @@ def main() -> int:
     rows = stage_filter(rows, soundtags, a.stage)
     funnel = tier_funnel(rows, quality, **tier_kw)
     tier = funnel[-1][1]
-    slice_rows = cap_hours(tier, a.max_hours, a.max_series_share, a.seed)
     root_of = {"dataset": os.path.relpath(wav_dir, out),
                "dataset_long": os.path.relpath(long_root / a.long_wavs, out) if long_root else None,
                "dataset_events": os.path.relpath(events_root / a.events_wavs, out) if events_root else None}
@@ -211,6 +189,29 @@ def main() -> int:
         merged = dict(t) if t else {"style": [], "flags": [], "events": []}
         merged["style"] = sorted(set(merged.get("style", [])) | set(extra))
         return merged
+
+    def labels_of(r):  # labels the row can carry in stage 2 (written only when frequent enough in the slice)
+        t = tags_of(r) or {}
+        labs = [f"style:{s}" for s in t.get("style", []) if s in STYLE_PREFIX]
+        if r["root"] == "dataset_events" and r.get("tag") in EVENT_TAG:
+            labs.append(f"tag:{r['tag']}")
+        if r["root"] == "dataset_long":
+            labs += [f"tag:{e['tag']}" for e in t.get("events", []) if (e.get("where") or "").startswith("gap:")
+                     and e.get("char") is not None and e.get("who_match") is not False and e.get("tag") in EVENT_TAG]
+        return labs
+
+    # stage 2: labelled clips go in first (rarest label first, --label-quota each, at most --label-max-share of the
+    # hours), so a random slice of a much bigger tier does not sample the rare tags away; the random fill then takes
+    # unlabelled clips only, so the labelled share stays within the cap and each label keeps its quota
+    first = []
+    pool = tier
+    if a.stage >= 2 and a.label_first:
+        first = labels_first(tier, labels_of, a.label_max_share * a.max_hours, a.label_quota, a.seed)
+        print(f"label-first: {len(first)} labelled clips ({sum(r['duration'] for r in first) / 3600:.2f} h) "
+              "before the random fill")
+        pool = first + [r for r in tier if not labels_of(r)]
+    slice_rows = cap_hours(pool, a.max_hours, a.max_series_share, a.seed, taken=first)
+    tier_labels = Counter(lab for r in tier for lab in labels_of(r)) if a.stage >= 2 else Counter()
 
     styles_seen = [s for r in slice_rows for s in (tags_of(r) or {}).get("style", [])]
     tags_seen = [r["tag"] for r in slice_rows if r["root"] == "dataset_events"]
@@ -308,12 +309,17 @@ def main() -> int:
     for s, rs in sorted(per.items(), key=lambda kv: -hrs(kv[1])):
         lines.append(f"| {s} | {len(rs)} | {hrs(rs):.2f} | {len({r['speaker_id'] for r in rs})} |")
     if a.stage >= 2:
-        from collections import Counter as _C
-        cs, ct = _C(styles_seen), _C(tags_seen)
+        cs, ct = Counter(styles_seen), Counter(tags_seen)
         lines += ["", f"## Labels (stage 2; min_style {a.min_style}, min_tag {a.min_tag})", "",
-                  "| label | kind | in slice | written |", "|---|---|---|---|"]
-        lines += [f"| {s} | style | {n} | {'yes' if s in styles_ok else 'no'} |" for s, n in cs.most_common()]
-        lines += [f"| {t} | event | {n} | {'yes' if t in events_ok else 'no'} |" for t, n in ct.most_common()]
+                  "| label | kind | in tier | in slice | written |", "|---|---|---|---|---|"]
+        lines += [f"| {s} | style | {tier_labels['style:' + s]} | {n} | {'yes' if s in styles_ok else 'no'} |"
+                  for s, n in cs.most_common()]
+        lines += [f"| {t} | event | {tier_labels['tag:' + t]} | {n} | {'yes' if t in events_ok else 'no'} |"
+                  for t, n in ct.most_common()]
+        lines += ["", f"- label-first: {len(first)} labelled clips ({hrs(first):.2f} h) taken before the random fill "
+                  f"(quota {a.label_quota} per label, rarest first, at most {a.label_max_share:.0%} of {a.max_hours} h); "
+                  "the random fill takes unlabelled clips only"
+                  if a.label_first else "- label-first: off (labelled clips only as the random slice brings them)"]
         if a.auto_styles:
             lines += ["", f"- automatic styles (ttsdata emotions, confidence >= {a.auto_min_conf}"
                       f"{', ' + a.auto_conf if a.auto_conf else ''}): {sum(1 for r in slice_rows if auto.get(r.get('base') or r['id']))} clips in the slice"]

@@ -202,3 +202,71 @@ def validate_row(d: dict) -> list[str]:
     if not isinstance(d.get("dataset_id"), int):
         errs.append("dataset_id must be int")
     return errs
+
+
+def cap_hours(rows: list[dict], max_hours: float, max_series_share: float, seed: int,
+              taken: list[dict] | None = None) -> list[dict]:
+    """Seeded sample of rows totalling about max_hours, no series above max_series_share of it.
+
+    taken: rows already chosen (stage 2 labels_first). They are always kept and count toward the total and toward
+    their series' cap; the rest of the budget is filled at random from the other rows."""
+    taken = list(taken or [])
+    ids = {r["id"] for r in taken}
+    rest = [r for r in rows if r["id"] not in ids] if taken else rows
+    total = sum(r["duration"] for r in rest + taken) / 3600
+    if max_hours <= 0 or total <= max_hours:
+        return sorted(taken + rest, key=lambda r: r["id"]) if taken else rows
+    rng = random.Random(seed)
+    taken_h: dict[str, float] = defaultdict(float)
+    for r in taken:
+        taken_h[r["series"]] += r["duration"] / 3600
+    by_series: dict[str, list[dict]] = defaultdict(list)
+    for r in rest:
+        by_series[r["series"]].append(r)
+    hours = {s: sum(r["duration"] for r in v) / 3600 for s, v in by_series.items()}
+    alloc = {s: min(h, max(0.0, max_series_share * max_hours - taken_h[s])) for s, h in hours.items()}
+    budget = max(0.0, max_hours - sum(taken_h.values()))
+    if sum(alloc.values()) > 0:
+        scale = budget / sum(alloc.values())
+        if scale < 1:
+            alloc = {s: a * scale for s, a in alloc.items()}
+    out = list(taken)
+    for s, v in by_series.items():
+        v = sorted(v, key=lambda r: r["id"])
+        rng.shuffle(v)
+        acc = 0.0
+        for r in v:
+            if acc >= alloc[s] * 3600:
+                break
+            out.append(r)
+            acc += r["duration"]
+    return sorted(out, key=lambda r: r["id"])
+
+
+def labels_first(rows: list[dict], labels_of, max_hours: float, per_label: int, seed: int = 0) -> list[dict]:
+    """Stage 2: rows that carry a label, taken before the random fill so rare labels are not sampled away.
+
+    Rarest label first; per label at most per_label clips (a row already taken for another label counts toward this
+    one too), seeded random choice within a label; stops once max_hours is spent, so the rare labels always get in."""
+    rng = random.Random(seed)
+    groups: dict[str, list[dict]] = defaultdict(list)
+    for r in rows:
+        for lab in set(labels_of(r)):
+            groups[lab].append(r)
+    taken, ids, spent, budget = [], set(), 0.0, max_hours * 3600
+    for lab in sorted(groups, key=lambda k: (len(groups[k]), k)):
+        v = sorted(groups[lab], key=lambda r: r["id"])
+        rng.shuffle(v)
+        n = sum(1 for r in v if r["id"] in ids)
+        for r in v:
+            if n >= per_label:
+                break
+            if r["id"] in ids:
+                continue
+            if spent + r["duration"] > budget:
+                return taken
+            taken.append(r)
+            ids.add(r["id"])
+            spent += r["duration"]
+            n += 1
+    return taken

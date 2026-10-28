@@ -1,3 +1,4 @@
+import pytest
 from ttsdata.manifest import (EXCLUDE_FLAGS, combine_units, manifest_row, pair_references, replay_text, select_tier,
                               validate_row)
 
@@ -145,3 +146,47 @@ def test_restore_bases_returns_the_base_when_the_tag_is_not_written():
     # laugh is written: its row stays; cry is not: c2 comes back in its place, c3 (1.5 s) fails the tier and is gone
     assert [r["id"] for r in out] == ["c0_laugh", "c1", "c2"] and out[2]["root"] == "dataset"
     assert [r["id"] for r in restore_bases(rows, {"laugh", "cry"}, units, q)] == ["c0_laugh", "c1", "c2_cry", "c3_cry"]
+
+
+def _rows(n, series="A", dur=3600.0, start=0, **extra):
+    return [{"id": f"{series}{start + i:04d}", "series": series, "duration": dur, **extra} for i in range(n)]
+
+
+def test_cap_hours_without_taken_keeps_the_series_cap():
+    from ttsdata.manifest import cap_hours
+    rows = _rows(50, "A") + _rows(10, "B")
+    out = cap_hours(rows, max_hours=20, max_series_share=0.6, seed=0)
+    hours = {s: sum(r["duration"] for r in out if r["series"] == s) / 3600 for s in "AB"}
+    assert sum(hours.values()) == pytest.approx(20, abs=2)
+    assert hours["A"] <= 0.6 * 20 + 1
+    assert cap_hours(rows[:5], max_hours=20, max_series_share=0.6, seed=0) == rows[:5]  # under the cap: all kept
+
+
+def test_cap_hours_keeps_taken_rows_and_counts_them_against_the_caps():
+    from ttsdata.manifest import cap_hours
+    rows = _rows(50, "A") + _rows(50, "B")
+    taken = [r for r in rows if r["series"] == "A"][:8]
+    out = cap_hours(rows, max_hours=20, max_series_share=0.5, seed=0, taken=taken)
+    ids = [r["id"] for r in out]
+    assert len(ids) == len(set(ids))
+    assert {r["id"] for r in taken} <= set(ids)
+    hours = {s: sum(r["duration"] for r in out if r["series"] == s) / 3600 for s in "AB"}
+    assert sum(hours.values()) == pytest.approx(20, abs=2)
+    assert hours["A"] <= 0.5 * 20 + 1  # the 8 taken hours count toward A's 10 h cap
+
+
+def test_labels_first_takes_the_rarest_label_first_within_quota_and_budget():
+    from ttsdata.manifest import labels_first
+    rows = (_rows(3, "A", dur=60, label="cry") + _rows(40, "A", dur=60, start=100, label="happy")
+            + _rows(40, "B", dur=60, label=None))
+    lab = lambda r: [r["label"]] if r.get("label") else []  # noqa: E731
+    out = labels_first(rows, lab, max_hours=10, per_label=20, seed=0)
+    got = [r["label"] for r in out]
+    assert got.count("cry") == 3 and got.count("happy") == 20 and None not in got
+    assert out == labels_first(rows, lab, max_hours=10, per_label=20, seed=0)  # seeded
+    # budget of 0.1 h = 6 one-minute clips: the rare label still gets all its rows first
+    small = labels_first(rows, lab, max_hours=0.1, per_label=20, seed=0)
+    assert [r["label"] for r in small].count("cry") == 3 and len(small) == 6
+    # a row carrying two labels counts toward both quotas
+    both = [{"id": "x", "series": "A", "duration": 60, "labs": ["cry", "laugh"]}]
+    assert len(labels_first(both, lambda r: r["labs"], max_hours=1, per_label=1, seed=0)) == 1
