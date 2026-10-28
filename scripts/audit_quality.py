@@ -1,7 +1,9 @@
 """Quality audit of a built dataset, beyond integrity: per-clip silence edges, loudness, peaks, text problems,
 optional UTMOSv2 naturalness, per-episode CER outliers, speaker coverage, and a listening folder.
 
-Writes <root>/quality.jsonl (one row per clip; keeps music_db/source written by separate_vocals.py),
+Writes <root>/quality.jsonl (one row per clip; keeps music_db/source/vocal_ratio written by separate_vocals.py),
+When --wavs names a folder that holds only some clips (wavs_clean after separate_vocals.py --manifests), the clips
+found there are measured and reported; the others keep their earlier quality rows.
 <root>/AUDIT.md and <root>/listen/ (symlinks + index.md). Exit code 1 when AUDIT.md lists problems.
 
 usage: .venv/bin/python scripts/audit_quality.py [--root data/dataset] [--wavs wavs] [--utmos 0|1]
@@ -86,6 +88,10 @@ def main() -> int:
     rows = [json.loads(l) for l in (root / "metadata.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     if a.limit:
         rows = rows[: a.limit]
+    present = [r for r in rows if (wav_dir / f"{r['id']}.wav").exists()]
+    if len(present) < len(rows):
+        print(f"{len(rows) - len(present)} of {len(rows)} clips have no wav in {wav_dir}: not measured, earlier rows kept")
+        rows = present
     stats = json.loads((root / "stats.json").read_text(encoding="utf-8")) if (root / "stats.json").exists() else {}
     previous: dict[str, dict] = {}
     qfile = root / "quality.jsonl"
@@ -103,6 +109,7 @@ def main() -> int:
         prev = previous.get(q["id"], {})
         q["music_db"] = prev.get("music_db")
         q["source"] = prev.get("source")
+        q["vocal_ratio"] = prev.get("vocal_ratio")
         q["utmos"] = prev.get("utmos")
     def write_quality():  # union with rows not recomputed in this run (e.g. --limit), atomically
         merged = {**previous, **by_id}
