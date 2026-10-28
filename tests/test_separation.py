@@ -37,6 +37,15 @@ def test_manifest_ids_picks_the_clips_of_one_root_from_audio_and_ref_audio():
     assert manifest_ids(rows, "fleurs_tr") == set()  # replay clips sit outside a dataset root's wav folder
 
 
+def test_event_base_ids_are_the_bases_of_the_event_clips_a_manifest_uses():
+    from ttsdata.separation import event_base_ids
+    rows = [{"audio": "../dataset_events/wavs/e1_laugh.wav"}, {"audio": "../dataset/wavs/a.wav"}]
+    events = [{"id": "e1_laugh", "base": "b1"}, {"id": "e2_cry", "base": "b2"}, {"id": "e3_x"}]
+    # the stage 2 builder needs a cleaned base next to each event clip (it replaces the base, or the base returns)
+    assert event_base_ids(rows, events) == {"b1"}
+    assert event_base_ids([{"audio": "../dataset_events/wavs/e3_x.wav"}], events) == set()
+
+
 def test_shard_splits_ids_into_disjoint_covering_parts():
     from ttsdata.separation import shard
     ids = [f"c{i}" for i in range(10)]

@@ -68,6 +68,14 @@ def manifest_ids(rows: list[dict], root_name: str) -> set[str]:
     return ids
 
 
+def event_base_ids(rows: list[dict], event_rows: list[dict]) -> set[str]:
+    """Base clip ids (in the main dataset root) of the event-extended clips a manifest uses. The stage 2 builder only
+    swaps an event clip in for a base that has a wav, and puts the base back when the event tag is too rare, so the
+    bases need cleaning too even though the manifest itself lists the event clip instead."""
+    used = manifest_ids(rows, "dataset_events")
+    return {e["base"] for e in event_rows if e["id"] in used and e.get("base")}
+
+
 def shard(ids: list[str], k: int, n: int) -> list[str]:
     """Part k of n of the ids (sorted, every n-th): parallel separator processes split one clip list this way."""
     return sorted(ids)[k::n]
