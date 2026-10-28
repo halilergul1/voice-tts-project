@@ -39,11 +39,14 @@ def _gates(min_dur, max_dur, max_cer, max_music_db, max_music_db_separated, min_
 
 
 def tier_funnel(rows: list[dict], quality: dict[str, dict], *, min_dur: float = 3.0, max_dur: float = 20.0,
-                max_cer: float = 0.05, max_music_db: float = -20.0, max_music_db_separated: float = -5.0,
+                max_cer: float = 0.05, max_music_db: float = -10.0, max_music_db_separated: float = 0.0,
                 min_cluster: int = 10, max_trail: float = 0.5, soundtags: dict[str, dict] | None = None,
                 stage: int = 1) -> list[tuple[str, list[dict]]]:
     """Rows surviving each gate, cumulatively: [("audited", rows), ("duration", rows), ...].
 
+    Music gate (music_db from separate_vocals.py) matches separation.choose_source: originals up to -10 dB (the
+    separator reports -12..-25 dB of residue on clean speech), separated vocals up to 0 dB; all five bands sounded
+    clean in the 2026-10-28 listening check.
     soundtags: {clip id: soundtags.jsonl row} when `ttsdata soundtags` has run (None: no sound_flags gate);
     stage 2 (expressive training) also drops clips under a laugh track."""
     kept = rows

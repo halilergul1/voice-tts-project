@@ -18,14 +18,16 @@ def test_select_tier_applies_every_gate():
     q["c4"]["text_flags"] = ["digits"]
     assert [r["id"] for r in select_tier(rows, q)] == ["c0"]
     assert select_tier([R(0)], {"c0": Q(0, trail=0.8)}) == []
-    assert select_tier([R(0)], {"c0": Q(0, music=-10.0)}) == []
+    assert select_tier([R(0)], {"c0": Q(0, music=-9.0)}) == []
+    assert select_tier([R(0)], {"c0": Q(0, music=-12.0)}) != []  # separator residue on clean speech, cleared by listening
     assert select_tier([R(0, dur=3.0)], {"c0": Q(0)}) != []  # 3.0 s is in, 2.9 s is out
     assert select_tier([R(0, dur=20.5)], {"c0": Q(0)}) == []
     assert select_tier([R(0)], {}) == []  # no quality row: not audited, not eligible
     assert select_tier([R(0)], {"c0": Q(0, music=None)}) != []  # music not measured (no separation run): allowed
     # a clip whose music was stripped by separation is rescued, unless the music was louder than the voice
     assert select_tier([R(0)], {"c0": {**Q(0, music=-10.0), "source": "separated"}}) != []
-    assert select_tier([R(0)], {"c0": {**Q(0, music=-10.0), "source": "original"}}) == []
+    assert select_tier([R(0)], {"c0": {**Q(0, music=-9.0), "source": "original"}}) == []
+    assert select_tier([R(0)], {"c0": {**Q(0, music=-2.0), "source": "separated"}}) != []
     assert select_tier([R(0)], {"c0": {**Q(0, music=2.0), "source": "separated"}}) == []
 
 
