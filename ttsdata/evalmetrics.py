@@ -9,11 +9,15 @@ import numpy as np
 
 
 def lora_config_from_checkpoint(step_dir: Path, allowed: Iterable[str]) -> dict | None:
-    """The trainer's lora_config.json of a checkpoint, restricted to the LoRAConfig fields; None when absent."""
+    """The trainer's lora_config.json of a checkpoint, restricted to the LoRAConfig fields; None when absent.
+
+    VoxCPM's trainer nests the settings: {"base_model": ..., "lora_config": {...}}; a flat file is read as is."""
     f = Path(step_dir) / "lora_config.json"
     if not f.exists():
         return None
     cfg = json.loads(f.read_text(encoding="utf-8"))
+    if isinstance(cfg.get("lora_config"), dict):
+        cfg = cfg["lora_config"]
     allowed = set(allowed)
     return {k: v for k, v in cfg.items() if k in allowed}
 

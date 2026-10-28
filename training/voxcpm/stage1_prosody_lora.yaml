@@ -1,0 +1,35 @@
+# Stage 1 "prosody" LoRA on VoxCPM2: upstream conf/voxcpm_v2/voxcpm_finetune_lora.yaml with the plan's settings
+# (docs/superpowers/plans/2026-10-26-voxcpm2-stage01.md, Task 6). One epoch of data/voxcpm (60 h clean-wav slice,
+# 42,001 train rows): num_iters = max_steps = ceil(42001 / 16) = 2626.
+pretrained_path: /home/ibrahim/tts/models/VoxCPM2
+train_manifest: /home/ibrahim/voice-data/data/voxcpm/train.jsonl
+val_manifest: /home/ibrahim/voice-data/data/voxcpm/val.jsonl
+sample_rate: 16000        # AudioVAE encoder input rate; must match audio_vae_config.sample_rate
+out_sample_rate: 48000    # AudioVAE decoder output rate; used for TensorBoard audio logging
+batch_size: 4
+grad_accum_steps: 4  # batch 16 and 8 ran out of memory on the 32 GB 5090 (rows up to 20 s + a reference clip); effective batch stays 16
+num_workers: 4
+preprocessing_num_workers: 8
+num_iters: 2626
+log_interval: 10
+valid_interval: 250
+save_interval: 250
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 100
+max_steps: 2626
+max_batch_tokens: 8192
+max_grad_norm: 1.0
+save_path: /home/ibrahim/tts/checkpoints/stage1
+tensorboard: /home/ibrahim/tts/logs/stage1
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+
+lora:
+  enable_lm: true
+  enable_dit: true
+  enable_proj: false
+  r: 64
+  alpha: 64
+  dropout: 0.0

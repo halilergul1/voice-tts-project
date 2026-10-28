@@ -91,16 +91,25 @@ def _load_voxcpm(system: str, model_dir: str | None, lora: str | None, device: s
         if system == "voxcpm2-lora":
             if not lora:
                 raise SystemExit("--lora <step dir> is required for voxcpm2-lora")
-            from voxcpm.model.voxcpm import LoRAConfig
+            try:
+                from voxcpm.model.voxcpm2 import LoRAConfig
+            except ImportError:
+                from voxcpm.model.voxcpm import LoRAConfig
 
             cfg = lora_config_from_checkpoint(Path(lora), inspect.signature(LoRAConfig).parameters)
             if cfg is None:
                 raise SystemExit(f"{lora}/lora_config.json missing: inference LoRA settings must match training")
             kw["lora_config"] = LoRAConfig(**cfg)  # without it the library assumes r=8 / alpha=16
             kw["lora_weights_path"] = lora
-    if "hf_model_id" in sig:
-        return VoxCPM.from_pretrained(hf_model_id=model_id, **kw)
-    return VoxCPM.from_pretrained(model_id, **kw)
+    model = VoxCPM.from_pretrained(hf_model_id=model_id, **kw) if "hf_model_id" in sig \
+        else VoxCPM.from_pretrained(model_id, **kw)
+    if system == "voxcpm2-lora":  # the library only prints "skipped N" when keys do not match: fail loudly instead
+        loaded, skipped = model.tts_model.load_lora_weights(lora)  # same weights again; returns what matched
+        if skipped or not loaded:
+            raise SystemExit(f"LoRA {lora}: {len(loaded)} weights loaded, {len(skipped)} skipped; "
+                             f"check {lora}/lora_config.json")
+        print(f"LoRA weights loaded: {len(loaded)}")
+    return model
 
 
 def cmd_synth(a) -> None:

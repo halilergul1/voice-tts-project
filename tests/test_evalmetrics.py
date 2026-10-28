@@ -25,3 +25,15 @@ def test_lora_config_from_checkpoint_filters_to_known_fields(tmp_path):
     cfg = lora_config_from_checkpoint(tmp_path, ["r", "alpha", "dropout", "enable_lm", "enable_dit", "enable_proj"])
     assert cfg == {"r": 64, "alpha": 64, "dropout": 0.0, "enable_lm": True, "enable_dit": True, "enable_proj": False}
     assert lora_config_from_checkpoint(tmp_path / "missing", ["r"]) is None
+
+
+def test_lora_config_from_checkpoint_reads_the_trainers_nested_block(tmp_path):
+    # VoxCPM's trainer writes {"base_model": ..., "lora_config": {...}}; reading only the top level gave an empty
+    # config, so inference built no LoRA layers and skipped every weight (2026-10-28 smoke run)
+    (tmp_path / "lora_config.json").write_text(json.dumps({"base_model": "/m/VoxCPM2", "lora_config": {
+        "enable_lm": True, "enable_dit": True, "enable_proj": False, "r": 64, "alpha": 64, "dropout": 0.0,
+        "target_modules_lm": ["q_proj"]}}))
+    cfg = lora_config_from_checkpoint(tmp_path, ["r", "alpha", "dropout", "enable_lm", "enable_dit", "enable_proj",
+                                                 "target_modules_lm"])
+    assert cfg == {"enable_lm": True, "enable_dit": True, "enable_proj": False, "r": 64, "alpha": 64, "dropout": 0.0,
+                   "target_modules_lm": ["q_proj"]}
