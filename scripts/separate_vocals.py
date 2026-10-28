@@ -3,10 +3,12 @@
 Runs a vocal separator (audio-separator, BS-Roformer by default) over <root>/<wavs>/, measures the instrumental
 stem against the vocal stem, and writes <root>/<out>/<id>.wav as either the original clip or the separated vocals
 (choose_source), loudness-normalised like the build stage. Records music_db and source per clip in
-<root>/quality.jsonl. Resumable: clips already present in <out>/ are skipped.
+<root>/quality.jsonl. Resumable: clips already present in <out>/ are skipped. --manifests limits the run to the clips those VoxCPM
+manifests use from this root (audio + ref_audio), e.g. the 60 h training slices instead of the whole build.
 
 Run inside a venv with audio-separator (the trainer venv is not needed):
   .venv-sep/bin/python scripts/separate_vocals.py --root data/dataset [--limit 50] [--model <ckpt>] [--threshold-db -25]
+      [--manifests data/voxcpm/train.jsonl,data/voxcpm/val.jsonl]
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.separation import choose_source, loudness_normalize, relative_loudness_db  # noqa: E402
+from ttsdata.separation import choose_source, loudness_normalize, manifest_ids, relative_loudness_db  # noqa: E402
 
 DEFAULT_MODEL = "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
 
@@ -70,12 +72,20 @@ def main() -> int:
     ap.add_argument("--peak", type=float, default=0.99)
     ap.add_argument("--batch", type=int, default=64)
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--manifests", default="", help="comma-separated manifest jsonl files: only the clips they use")
     a = ap.parse_args()
     root = Path(a.root)
     src_dir, out_dir = root / a.wavs, root / a.out
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows = [json.loads(l) for l in (root / "metadata.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
+    if a.manifests:
+        used = set()
+        for m in a.manifests.split(","):
+            used |= manifest_ids([json.loads(l) for l in Path(m).read_text(encoding="utf-8").splitlines() if l.strip()],
+                                 root.name)
+        rows = [r for r in rows if r["id"] in used]
+        print(f"--manifests: {len(rows)} clips of {root} are used by {a.manifests}")
     if a.limit:
         rows = rows[: a.limit]
     todo = [r["id"] for r in rows if not (out_dir / f"{r['id']}.wav").exists()]

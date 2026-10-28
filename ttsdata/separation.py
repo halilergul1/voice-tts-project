@@ -54,3 +54,15 @@ def loudness_normalize(y: np.ndarray, sr: int, target_lufs: float = -20.0, peak_
     if peak > peak_ceiling:
         y = y * (peak_ceiling / peak)
     return y.astype(np.float32)
+
+
+def manifest_ids(rows: list[dict], root_name: str) -> set[str]:
+    """Clip ids a VoxCPM manifest uses from one dataset root (its `audio` and `ref_audio` paths, any wav folder):
+    lets separate_vocals.py clean only the clips a training set needs instead of the whole build."""
+    ids = set()
+    for d in rows:
+        for key in ("audio", "ref_audio"):
+            parts = (d.get(key) or "").split("/")
+            if len(parts) >= 3 and parts[-3] == root_name and parts[-1].endswith(".wav"):
+                ids.add(parts[-1][:-4])
+    return ids
