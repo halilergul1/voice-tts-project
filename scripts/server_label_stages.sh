@@ -4,13 +4,15 @@
 # Run detached on the server (tmux survives the ssh session, nohup over ssh did not):
 #   tmux new -d -s label 'scripts/server_label_stages.sh >> data/logs/label_stages.log 2>&1'
 # A failing stage prints "== <name>  FAILED" to that log and stops the run; fix it and start the same command again.
-# Env: PY (python), WORKERS (quality audit processes), MAX_HOURS (manifest cap), AUTO_CONF (calibrated cut-offs).
+# Env: PY (python), WORKERS (quality audit processes), MAX_HOURS (manifest cap), AUTO_CONF (calibrated cut-offs),
+#      MIN_TAG (stage 2: clips an event tag needs in the slice; 200 lets [ağlama] in, 2026-10-28).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="${PY:-.venv/bin/python}"
 WORKERS="${WORKERS:-12}"
 MAX_HOURS="${MAX_HOURS:-60}"
 AUTO_CONF="${AUTO_CONF:-angry=0.70,sad=0.85,happy=0.99}"
+MIN_TAG="${MIN_TAG:-200}"
 LOG=data/logs
 mkdir -p "$LOG"
 
@@ -54,6 +56,6 @@ FETCH=""; [ -d data/fleurs_tr ] && [ -n "$(ls data/fleurs_tr/*.wav 2>/dev/null |
 stage manifest1 "$PY" scripts/make_voxcpm_manifest.py --stage 1 --out data/voxcpm --wavs wavs --long-wavs wavs --events-wavs wavs \
     --max-hours "$MAX_HOURS" $FETCH
 stage manifest2 "$PY" scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 --wavs wavs --long-wavs wavs --events-wavs wavs \
-    --max-hours "$MAX_HOURS" --auto-styles --auto-conf "$AUTO_CONF"
+    --max-hours "$MAX_HOURS" --auto-styles --auto-conf "$AUTO_CONF" --min-tag "$MIN_TAG"
 touch "$LOG/label_stages_done"
 echo "all stages done $(date '+%F %T')"
