@@ -5,14 +5,14 @@
 #   tmux new -d -s label 'scripts/server_label_stages.sh >> data/logs/label_stages.log 2>&1'
 # A failing stage prints "== <name>  FAILED" to that log and stops the run; fix it and start the same command again.
 # Env: PY (python), WORKERS (quality audit processes), MAX_HOURS (manifest cap), AUTO_CONF (calibrated cut-offs),
-#      MIN_TAG (stage 2: clips an event tag needs in the slice; 200 lets [ağlama] in, 2026-10-28).
+#      MIN_TAG (stage 2: clips an event tag needs in the slice; 150 lets [ağlama] in on the clean-wav build, 2026-10-28).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="${PY:-.venv/bin/python}"
 WORKERS="${WORKERS:-12}"
 MAX_HOURS="${MAX_HOURS:-60}"
 AUTO_CONF="${AUTO_CONF:-angry=0.70,sad=0.85,happy=0.99}"
-MIN_TAG="${MIN_TAG:-200}"
+MIN_TAG="${MIN_TAG:-150}"
 LOG=data/logs
 mkdir -p "$LOG"
 

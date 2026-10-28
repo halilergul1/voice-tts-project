@@ -13,7 +13,7 @@ SEP_PY="${SEP_PY:-$HOME/tts/venv-sep/bin/python}"
 WORKERS="${WORKERS:-12}"
 MAX_HOURS="${MAX_HOURS:-60}"
 AUTO_CONF="${AUTO_CONF:-angry=0.70,sad=0.85,happy=0.99}"
-MIN_TAG="${MIN_TAG:-200}"
+MIN_TAG="${MIN_TAG:-150}"
 SEP_BATCH="${SEP_BATCH:-64}"
 SEP_JOBS="${SEP_JOBS:-6}"
 LOG=data/logs
