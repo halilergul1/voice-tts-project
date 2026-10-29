@@ -35,6 +35,7 @@ from ttsdata.labels import EVENT_TAG, STYLE_PREFIX, allowed_labels, auto_styles,
 from ttsdata.manifest import (cap_hours, combine_events, combine_units, labels_first, manifest_row,  # noqa: E402
                               pair_references, replay_text, restore_bases,
                               stage_filter, tier_funnel, validate_row)
+from ttsdata.voicegender import DESCRIPTIONS, describe  # noqa: E402
 
 
 def fetch_fleurs(out_dir: Path, min_dur: float = 3.0, max_dur: float = 20.0, target_lufs: float = -20.0) -> int:
@@ -88,6 +89,11 @@ def main() -> int:
     ap.add_argument("--max-music-db", type=float, default=-10.0,
                     help="music gate for clips kept as the original (-40 after separating everything: truly clean only)")
     ap.add_argument("--max-music-db-separated", type=float, default=0.0, help="music gate for separated clips")
+    ap.add_argument("--speaker-gender", default="", help="speaker_gender.jsonl (scripts/speaker_gender.py): enables "
+                    "voice descriptions such as '(bir kadın sesi) ...' on rows without a reference clip")
+    ap.add_argument("--voice-desc-share", type=float, default=0.5,
+                    help="share of eligible rows (no ref_audio, labelled speaker, no style prefix) that get one")
+    ap.add_argument("--voice-desc-lang", default="tr", choices=sorted(DESCRIPTIONS))
     ap.add_argument("--events-root", default="data/dataset_events", help="event-extended clips (ttsdata extend-events); '' to skip")
     ap.add_argument("--events-wavs", default="wavs_clean")
     ap.add_argument("--event-evidence", default="laugh_syllables,tagger,clean", help="accepted verification evidence levels")
@@ -230,15 +236,26 @@ def main() -> int:
     pairs = {**pair_references(train_rows, a.ref_ratio, a.seed), **pair_references(val_rows, a.ref_ratio, a.seed)}
     by_id = {r["id"]: r for r in slice_rows}
 
+    gender_of = {}
+    if a.speaker_gender:
+        gender_of = {g["speaker_id"]: g["gender"] for g in load_jsonl(Path(a.speaker_gender)) if g.get("gender")}
+    desc_rng = random.Random(a.seed + 7)
+    n_desc = Counter()
     train, val = [], []
     n_labelled = 0
     for r in slice_rows:
         ref = by_id.get(pairs.get(r["id"]))
         text = r["normalized_text_tagged"] if r["root"] == "dataset_events" else r["normalized_text"]
         text = labelled_text(text, tags_of(r), styles_ok, events_ok) if a.stage >= 2 else text
+        labelled = text != r["normalized_text"]  # labels and tags only; a voice description is not a label
+        g = gender_of.get(r.get("speaker_id"))
+        if ref is None and g and desc_rng.random() < a.voice_desc_share:
+            described = describe(text, g, DESCRIPTIONS[a.voice_desc_lang])
+            n_desc[g] += described != text
+            text = described
         d = manifest_row({**r, "normalized_text": text}, ref, root_of[r["root"]], dataset_id=0,
                          ref_audio_root=root_of[ref["root"]] if ref else None)
-        d["labelled"] = text != r["normalized_text"]
+        d["labelled"] = labelled
         n_labelled += d["labelled"]
         (val if r.get("split") == "val" else train).append(d)
     repeat_used = 1
@@ -331,6 +348,9 @@ def main() -> int:
                   f"(requested {a.label_repeat}, cap {a.label_max_share:.0%} of train); event evidence accepted: {a.event_evidence}"
                   + (" + unconfirmed" if a.include_unconfirmed else "")]
     n_ref = sum(1 for d in train + val if "ref_audio" in d)
+    if a.speaker_gender:
+        lines += ["", f"- voice descriptions ({a.voice_desc_lang}, share {a.voice_desc_share} of rows without ref_audio): "
+                  f"{n_desc['male']} male, {n_desc['female']} female; {len(gender_of)} labelled speakers"]
     lines += ["", f"- rows with ref_audio: {n_ref} ({n_ref / max(1, len(slice_rows)):.0%} of corpus rows)",
               f"- replay rows (dataset_id 1): {len(replay_rows)} ({len(replay_rows) / max(1, len(train)):.0%} of train)",
               f"- train {len(train)} / val {len(val)}; held-out eval sentences: {min(a.heldout, len(held))}", ""]
