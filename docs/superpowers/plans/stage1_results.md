@@ -137,3 +137,21 @@ subtitle; voice = ECAPA cosine to the music-removed clip.
 - Cost: about 2 points more word errors after separation (mostly single words: "Arif" heard as "harif", a dropped
   "Bak"), more on raw TV audio (music confuses it), and the voice moves (0.83 median similarity, some clips ~0.57).
 - Listening page: `data/listening_sample/sidon_trial.html`.
+
+Listening (user): echo and robotic sound almost gone, many clips much better; but some final words are swallowed
+("...Tut, tut parmakları.", "...Unutun ya.", "...siz bilirsiniz."), and one thin female voice stays robotic.
+Cause: no timing shift (output lag 0-20 ms), but those clips end with no silence (the subtitle cut lands on the last
+word) and Sidon fades the cut-off word: "bilirsiniz" loses its last ~0.3 s. Variants on the same 46 clips:
+
+| variant | WER | PESQ | voice | endings > 6 dB quieter |
+|---|---|---|---|---|
+| music removed, no Sidon | 0.079 | 2.29 | 1 | – |
+| demo padding (1.5 s zeros after) | 0.096 | 3.46 | 0.827 | 13 |
+| 0.5 s zeros before | 0.104 | – | – | 15 (by first-pass measure) |
+| mirrored end | 0.114 | – | – | 18 (by first-pass measure) |
+| 1.5 s of -60 dB noise around | 0.082 | 3.40 | 0.833 | 10 |
+| 0.5 s real context from the episode, music removed, noise padding, trimmed back | 0.077 | 3.56 | 0.833 | 8 |
+
+With context Sidon keeps the words (WER equal to the music-removed clips) and gives the best quality. A last-word
+level check (last 0.4 s of speech > 6 dB quieter than in the input) flags the remaining 8 for a fallback.
+Page: `data/listening_sample/sidon_context.html`.
