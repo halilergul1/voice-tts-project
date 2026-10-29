@@ -12,6 +12,9 @@ Run inside a venv with audio-separator (the trainer venv is not needed):
 Parallel: N processes with --shard 0/N .. N-1/N each clean every N-th clip and append their results to
 <root>/separation.shard<K>of<N>.jsonl instead of rewriting quality.jsonl; then one --merge run folds those files into
 quality.jsonl and removes them. (One process keeps the GPU mostly idle: short clips are bound by file handling.)
+--quality-file writes the results to another file under <root> (shard files are then named after it), e.g. for the
+context cuts of scripts/cut_context.py: --wavs wavs_ctx --out wavs_ctx_clean --quality-file ctx_quality.jsonl
+--ids-from-wavs --threshold-db -200.
 """
 from __future__ import annotations
 
@@ -68,13 +71,16 @@ def main() -> int:
     ap.add_argument("--redo-original", action="store_true",
                     help="also re-run clips kept as the original last time (with --threshold-db -200: separate all)")
     ap.add_argument("--merge", action="store_true", help="fold <root>/separation.shard*.jsonl into quality.jsonl and exit")
+    ap.add_argument("--quality-file", default="quality.jsonl", help="results file under <root>")
+    ap.add_argument("--ids-from-wavs", action="store_true", help="only the clips that have a wav in --wavs")
     a = ap.parse_args()
     root = Path(a.root)
     src_dir, out_dir = root / a.wavs, root / a.out
     out_dir.mkdir(parents=True, exist_ok=True)
-    qfile = root / "quality.jsonl"
+    qfile = root / a.quality_file
+    prefix = "separation" if a.quality_file == "quality.jsonl" else Path(a.quality_file).stem
     if a.merge:
-        files = sorted(root.glob("separation.shard*.jsonl"))
+        files = sorted(root.glob(f"{prefix}.shard*.jsonl"))
         rows = [json.loads(l) for f in files for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
         quality = {}
         if qfile.exists():
@@ -97,12 +103,15 @@ def main() -> int:
             used |= manifest_ids(mrows, root.name) | event_base_ids(mrows, events)
         rows = [r for r in rows if r["id"] in used]
         print(f"--manifests: {len(rows)} clips of {root} are used by {a.manifests}")
+    if a.ids_from_wavs:
+        rows = [r for r in rows if (src_dir / f"{r['id']}.wav").exists()]
+        print(f"--ids-from-wavs: {len(rows)} clips have a wav in {src_dir}")
     if a.limit:
         rows = rows[: a.limit]
     prev = {}
     if a.redo_original and qfile.exists():
         prev = {q["id"]: q for q in map(json.loads, filter(str.strip, qfile.read_text(encoding="utf-8").splitlines()))}
-    in_shards = {json.loads(l)["id"] for f in root.glob("separation.shard*.jsonl")
+    in_shards = {json.loads(l)["id"] for f in root.glob(f"{prefix}.shard*.jsonl")
                  for l in f.read_text(encoding="utf-8").splitlines() if l.strip()}
     done = {p.stem for p in out_dir.glob("*.wav")}
     todo = ids_to_separate([r["id"] for r in rows], done, prev, a.redo_original, in_shards)
@@ -110,7 +119,7 @@ def main() -> int:
     if a.shard:
         k, n = (int(x) for x in a.shard.split("/"))
         todo = shard(todo, k, n)
-        shard_file = (root / f"separation.shard{k}of{n}.jsonl").open("a", encoding="utf-8")
+        shard_file = (root / f"{prefix}.shard{k}of{n}.jsonl").open("a", encoding="utf-8")
     print(f"{len(rows)} clips, {len(todo)} to separate ({len(rows) - len(todo)} already in {out_dir})")
 
     quality: dict[str, dict] = {}
