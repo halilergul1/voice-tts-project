@@ -10,7 +10,8 @@ Turkish style prefixes "(ağlayarak)" and inline tags "[gülme]" are written for
 (--min-style / --min-tag), labelled rows are oversampled (--label-repeat, capped by --label-max-share).
 Stage 2 slice: labelled clips first (--label-first, rarest label first, --label-quota per label), then a random
 fill of unlabelled clips, so a 60 h sample of a ~350 h tier keeps the rare event tags.
-Also writes <out>/tier_report.md and data/eval/corpus_heldout.txt (val-set sentences for scripts/eval_tts.py).
+Also writes <out>/tier_report.md and <out>/corpus_heldout.txt (val-set sentences); data/eval/corpus_heldout.txt, the
+set scripts/eval_tts.py scores, is only written when missing, so runs stay comparable.
 
 usage: .venv/bin/python scripts/make_voxcpm_manifest.py --root data/dataset --out data/voxcpm --wavs wavs_clean \
           [--max-hours 60] [--ref-ratio 0.4] [--replay-dir data/fleurs_tr --replay-share 0.15] [--fetch-fleurs]
@@ -299,12 +300,21 @@ def main() -> int:
             for d in data:
                 f.write(json.dumps(d, ensure_ascii=False) + "\n")
 
+    # The scored held-out set (data/eval/corpus_heldout.txt) is written once and then kept, so every run is scored on the
+    # same sentences; each build's own val sentences go to <out>/corpus_heldout.txt.
     eval_dir = Path("data/eval")
     eval_dir.mkdir(parents=True, exist_ok=True)
     held = sorted({r["normalized_text"] for r in slice_rows if r.get("split") == "val"})
     rng = random.Random(a.seed)
     rng.shuffle(held)
-    (eval_dir / "corpus_heldout.txt").write_text("\n".join(held[: a.heldout]) + "\n", encoding="utf-8")
+    held_txt = "\n".join(held[: a.heldout]) + "\n"
+    (out / "corpus_heldout.txt").write_text(held_txt, encoding="utf-8")
+    fixed = eval_dir / "corpus_heldout.txt"
+    if not fixed.exists():
+        fixed.write_text(held_txt, encoding="utf-8")
+    fixed_held = [t for t in fixed.read_text(encoding="utf-8").splitlines() if t.strip()]
+    train_texts = {r["normalized_text"] for r in slice_rows if r.get("split") != "val"}
+    n_held_leak = sum(t in train_texts for t in fixed_held)
 
     def hrs(rs):
         return sum(r["duration"] for r in rs) / 3600
@@ -353,7 +363,8 @@ def main() -> int:
                   f"{n_desc['male']} male, {n_desc['female']} female; {len(gender_of)} labelled speakers"]
     lines += ["", f"- rows with ref_audio: {n_ref} ({n_ref / max(1, len(slice_rows)):.0%} of corpus rows)",
               f"- replay rows (dataset_id 1): {len(replay_rows)} ({len(replay_rows) / max(1, len(train)):.0%} of train)",
-              f"- train {len(train)} / val {len(val)}; held-out eval sentences: {min(a.heldout, len(held))}", ""]
+              f"- train {len(train)} / val {len(val)}; held-out eval sentences: {min(a.heldout, len(held))}",
+              f"- scored held-out set {fixed}: {len(fixed_held)} sentences, {n_held_leak} also in this build's train", ""]
     (out / "tier_report.md").write_text("\n".join(lines), encoding="utf-8")
     print("\n".join(lines))
     return 0
