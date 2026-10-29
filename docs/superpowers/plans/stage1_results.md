@@ -60,9 +60,10 @@ prompt "(A man's voice)" (run 1 used the Turkish prompt).
 | step 2500 | 0.059 | 0.017 | 2.39 | 0.015 | 0.004 | 2.49 | 1.81 | 0.469 |
 | step 2629 (end) | 0.042 | 0.008 | 2.40 | 0.007 | 0.002 | 2.48 | 1.82 | 0.469 |
 
-- Plan rule: **step 2629** (corpus CER 0.8%, tied with step 2000; best Freya WER 0.7% vs Trendyol 0.4%, gate 0.5 points
-  above: still 0.3 points short of the gate in theory, inside it in practice at 100 sentences). Voice consistency
-  0.47 is above the untrained model (0.44) and run 1 (0.42). UTMOS p10 1.82 is still under the untrained 1.93.
+- Plan rule: **step 2629** (corpus CER 0.8%, tied with step 2000; best Freya WER 0.7%).
+- Exit gate on the numbers: WER part **met** (0.3 points above Trendyol's 0.4%, gate 0.5); voice consistency 0.47 is
+  above the untrained model (0.44) and run 1 (0.42); UTMOS p10 1.82 is still under the untrained 1.93, so that part is
+  not met. The blind A/B is still open.
 - Background (instrumental level from BS-Roformer on the 100 Freya outputs; clean speech about -60 dB):
 
   | system | median | p90 | share >= -30 dB |
