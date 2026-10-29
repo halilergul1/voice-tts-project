@@ -155,3 +155,22 @@ word) and Sidon fades the cut-off word: "bilirsiniz" loses its last ~0.3 s. Vari
 With context Sidon keeps the words (WER equal to the music-removed clips) and gives the best quality. A last-word
 level check (last 0.4 s of speech > 6 dB quieter than in the input) flags the remaining 8 for a fallback.
 Page: `data/listening_sample/sidon_context.html`.
+
+### Alternatives to Sidon (2026-10-29)
+
+Same 46 clips, same input (0.5 s episode context, music removed, trimmed back, RMS matched). Separate venv
+`~/tts/venv-enh` (torch 2.14.1 cu130, `clearvoice`, `resemble-enhance` from GitHub with deepspeed stubbed: inference
+does not use it). Miipher-2 (Google) is not public; VoiceBridge has no released code.
+
+| tool | WER | UTMOS | PESQ | voice vs music-removed | endings > 6 dB quieter |
+|---|---|---|---|---|---|
+| music removed only | 0.079 | 2.14 | 2.29 | 1 | – |
+| Sidon v0.1 | 0.077 | 2.76 | 3.56 | 0.833 | 8 |
+| ClearerVoice MossFormer2_SE_48K | 0.089 | 2.16 | 2.54 | 0.982 | 2 |
+| Resemble Enhance (lambd 0.9, nfe 64) | 0.263 | 2.47 | 3.27 | 0.857 | 1 |
+| Resemble Enhance (lambd 0.1) | 0.248 | 2.55 | 3.23 | 0.857 | 1 |
+
+- Resemble Enhance hallucinates Turkish ("Aferin ulan. Vallahi aferin." heard as "kıvırdatın lan vallahi affet
+  ediyorum"): unusable here.
+- ClearerVoice keeps voice and words but barely changes quality: it does not remove the room sound.
+- Sidon stays the pick. Page: `data/listening_sample/restoration_compare.html`.
