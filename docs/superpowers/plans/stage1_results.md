@@ -118,3 +118,22 @@ random run 2 train clips):
 - Generation settings help a little (30 Freya sentences, run 2 end): guidance 3.0 instead of 2.0 gives PESQ 3.17 vs
   3.03, UTMOS 2.66 / p10 2.15 vs 2.65 / 2.05, WER 0.4% vs 0.7%; 32 diffusion steps PESQ 3.14. Not the main lever.
 - Listening check of the estimate: `data/listening_sample/train_quality_bands.html` (train clips in PESQ bands).
+
+### Sidon restoration trial (2026-10-29)
+
+User heard band B (SQUIM PESQ 2.0-2.5) and up as good, and asked for a way to clean echo without dropping clips.
+Trial of Sidon v0.1 (sarulab-speech/sidon-v0.1, MIT; w2v-BERT 2.0 feature cleaner + vocoder, run as in the official
+demo) on 46 run 2 train clips: 14 band A, 13 B, 13 C, 6 E/F as a control. Words scored by Whisper against the
+subtitle; voice = ECAPA cosine to the music-removed clip.
+
+| version | WER | UTMOS | PESQ | voice vs music-removed |
+|---|---|---|---|---|
+| original TV audio | 0.066 | 2.26 | 1.47 | 0.927 |
+| music removed (run 2 training audio) | 0.079 | 2.14 | 2.29 | 1 |
+| music removed + Sidon | 0.096 | 2.74 | 3.46 | 0.827 (min 0.571) |
+| Sidon on original | 0.123 | 3.01 | 3.75 | 0.786 (min 0.470) |
+
+- Sidon lifts quality to about Trendyol's level (Trendyol outputs: UTMOS 2.99, PESQ 3.85), most in bands A-B.
+- Cost: about 2 points more word errors after separation (mostly single words: "Arif" heard as "harif", a dropped
+  "Bak"), more on raw TV audio (music confuses it), and the voice moves (0.83 median similarity, some clips ~0.57).
+- Listening page: `data/listening_sample/sidon_trial.html`.
