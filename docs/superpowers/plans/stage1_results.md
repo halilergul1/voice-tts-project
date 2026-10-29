@@ -84,6 +84,37 @@ prompt "(A man's voice)" (run 1 used the Turkish prompt).
   | run 2 step 2629, "(A woman's voice)" | 232 Hz | 97% | 0.007 |
   | run 2 step 2629, no prompt | 162 Hz | 50% | 0.019 |
 
-- Corpus held-out WER (4.2%) is still above the untrained model (2.8%); its CER (0.8%) is about the same (0.7%).
+- **Correction:** the corpus columns above are on a different held-out set. Rebuilding the manifest for run 2 rewrote
+  `data/eval/corpus_heldout.txt` with 50 new sentences (fixed in e7a50cd; the old set is restored, 2 of its 50
+  sentences are in run 2's train text). On the old set (runs `s1v2_step<N>_corpusA`): step 2629 WER 0.059 / CER 0.017
+  / UTMOS 2.44, step 2000 0.061 / 0.019 / 2.42, against untrained 0.028 / 0.007 / 2.62 and run 1 step 750
+  0.031 / 0.015 / 2.29. Errors are mostly single words ("Gah" dropped, "hallederim" read as "halledelim").
 - Listening page: `data/listening_sample/stage1_v2_listen.html` (Trendyol, untrained, run 1, run 2 with male / female /
   no prompt).
+
+### Run 2 listening feedback and diagnosis (2026-10-29)
+
+User: clearly better than run 1, and some sentences sound more natural than Trendyol ("Parktaki yavru köpekler...");
+others are a bit robotic or sound like a small room with echo ("Radyoda en sevdiğim şarkı...", "Yemekten sonra
+bulaşıkları...").
+
+Reference-free quality estimate (torchaudio SQUIM objective, PESQ estimate 1-4.5; 100 Freya outputs per system, 100
+random run 2 train clips):
+
+| audio | PESQ median (p10) | SI-SDR median |
+|---|---|---|
+| Trendyol-TTS | 3.85 (3.60) | 26.0 dB |
+| VoxCPM2 untrained | 3.41 (2.42) | 22.2 dB |
+| run 1 step 750 | 2.67 (1.52) | 19.9 dB |
+| run 2 step 2629 | 3.09 (1.81) | 19.9 dB |
+| run 2 train clips, music removed | 2.58 (1.43) | 16.3 dB |
+| the same clips before separation | 1.54 (1.18) | 12.7 dB |
+
+- Fine-tuning moves output quality towards the training audio, which is TV dialogue with room sound, compression and
+  separation artefacts. All 73.7k separated clips: 107 h, PESQ median 2.39; >= 2.5: 50.9 h, >= 2.8: 35.1 h,
+  >= 3.0: 24.9 h, >= 3.2: 16.0 h. Run 2's train set: >= 3.0 is 13.9 h of 59 h.
+- An echo measure from a de-reverb model (anvuew MelBand Roformer: reverb stem vs dry stem) was inconclusive: it finds
+  almost no reverb anywhere (-46 to -60 dB) and rates Trendyol highest, so it does not see this kind of room sound.
+- Generation settings help a little (30 Freya sentences, run 2 end): guidance 3.0 instead of 2.0 gives PESQ 3.17 vs
+  3.03, UTMOS 2.66 / p10 2.15 vs 2.65 / 2.05, WER 0.4% vs 0.7%; 32 diffusion steps PESQ 3.14. Not the main lever.
+- Listening check of the estimate: `data/listening_sample/train_quality_bands.html` (train clips in PESQ bands).
