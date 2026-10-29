@@ -30,3 +30,59 @@ Baseline Freya100 numbers are the first 100 sentences of the 495-sentence stage 
 - Failure seen: the voice-design prompt is sometimes read aloud (1 of 50 corpus sentences at step 1250); one Freya
   sentence came out as a single word. Training text never carries a voice description.
 - Listening page: `data/listening_sample/stage1_listen.html` (15 sentences; Trendyol, untrained, step 750, step 2626).
+
+## Run 2 (2026-10-29): fully separated audio + English voice descriptions
+
+Listening to run 1 found two problems: a music/noise bed behind many outputs, and male or female voices regardless of
+the prompt. Causes: 80% of training clips had kept their original audio (instrumental at a median -17.8 dB under the
+voice, where clean speech measures about -60 dB), and VoxCPM2 ignores Turkish gender prompts (with the untrained model,
+"(bir erkek sesi)" gives 83% female-range pitch on 30 Freya sentences, while "(A man's voice)" gives 27% and
+"(A woman's voice)" 93%).
+
+Fixes: every training clip vocal-separated (`server_clean_stages.sh` with `SEP_EXTRA="--threshold-db -200
+--redo-original" MANIFEST_EXTRA="--max-music-db -40"`: 73.4k separated, 349 original); speaker gender from pitch
+(`scripts/speaker_gender.py`: 2,444 speakers, 1,194 female, 615 male, 635 unlabelled); "(A man's voice)" /
+"(A woman's voice)" on half of the non-reference rows of labelled speakers (`--speaker-gender ... --voice-desc-lang en`,
+8,712 of 42,049 train rows). Same training settings, 2629 steps (`checkpoints/stage1_v2`, 19:08 end). Scored with the
+prompt "(A man's voice)" (run 1 used the Turkish prompt).
+
+| checkpoint | corpus WER | corpus CER | corpus UTMOS | Freya100 WER | Freya100 CER | Freya100 UTMOS | UTMOS p10 | voice consistency |
+|---|---|---|---|---|---|---|---|---|
+| step 250 | 0.053 | 0.008 | 2.41 | 0.028 | 0.011 | 2.45 | 1.71 | 0.451 |
+| step 500 | 0.066 | 0.014 | 2.29 | 0.019 | 0.006 | 2.42 | 1.64 | 0.471 |
+| step 750 | 0.047 | 0.011 | 2.38 | 0.010 | 0.002 | 2.48 | 1.60 | 0.483 |
+| step 1000 | 0.046 | 0.012 | 2.54 | 0.015 | 0.006 | 2.63 | 2.00 | 0.481 |
+| step 1250 | 0.060 | 0.013 | 2.40 | 0.011 | 0.003 | 2.46 | 1.69 | 0.485 |
+| step 1500 | 0.045 | 0.013 | 2.53 | 0.011 | 0.004 | 2.49 | 1.89 | 0.464 |
+| step 1750 | 0.045 | 0.009 | 2.38 | 0.010 | 0.004 | 2.45 | 1.72 | 0.467 |
+| step 2000 | 0.043 | 0.008 | 2.44 | 0.010 | 0.004 | 2.45 | 1.72 | 0.472 |
+| step 2250 | 0.073 | 0.035 | 2.43 | 0.016 | 0.005 | 2.47 | 1.75 | 0.468 |
+| step 2500 | 0.059 | 0.017 | 2.39 | 0.015 | 0.004 | 2.49 | 1.81 | 0.469 |
+| step 2629 (end) | 0.042 | 0.008 | 2.40 | 0.007 | 0.002 | 2.48 | 1.82 | 0.469 |
+
+- Plan rule: **step 2629** (corpus CER 0.8%, tied with step 2000; best Freya WER 0.7% vs Trendyol 0.4%, gate 0.5 points
+  above: still 0.3 points short of the gate in theory, inside it in practice at 100 sentences). Voice consistency
+  0.47 is above the untrained model (0.44) and run 1 (0.42). UTMOS p10 1.82 is still under the untrained 1.93.
+- Background (instrumental level from BS-Roformer on the 100 Freya outputs; clean speech about -60 dB):
+
+  | system | median | p90 | share >= -30 dB |
+  |---|---|---|---|
+  | Trendyol-TTS | -61.9 | -58.6 | 0% |
+  | VoxCPM2 untrained | -62.4 | -29.1 | 11% |
+  | run 1 step 750 | -45.7 | -20.2 | 29% |
+  | run 2 step 2629 | -62.9 | -50.7 | 3% |
+
+- Gender (30 Freya sentences, median pitch per clip, female range > 165 Hz):
+
+  | system and prompt | median F0 | female-range share | WER |
+  |---|---|---|---|
+  | untrained, "(A man's voice)" | 144 Hz | 27% | 0.004 |
+  | untrained, "(A woman's voice)" | 242 Hz | 93% | 0.019 |
+  | run 1 step 750, Turkish male prompt | 193 Hz | 67% | 0.004 |
+  | run 2 step 2629, "(A man's voice)" | 137 Hz | 23% | 0.007 |
+  | run 2 step 2629, "(A woman's voice)" | 232 Hz | 97% | 0.007 |
+  | run 2 step 2629, no prompt | 162 Hz | 50% | 0.019 |
+
+- Corpus held-out WER (4.2%) is still above the untrained model (2.8%); its CER (0.8%) is about the same (0.7%).
+- Listening page: `data/listening_sample/stage1_v2_listen.html` (Trendyol, untrained, run 1, run 2 with male / female /
+  no prompt).
