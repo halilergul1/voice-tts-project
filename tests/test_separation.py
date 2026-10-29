@@ -76,3 +76,15 @@ def test_stems_for_finds_both_stems_of_an_aliased_input():
     v, i = stems_for(outs, alias(1))
     assert v.name.startswith("00001_(Vocals)") and i.name.startswith("00001_(Instrumental)")
     assert stems_for(outs, alias(2)) == (None, None)
+
+
+def test_ids_to_separate_redoes_kept_originals_once():
+    from ttsdata.separation import ids_to_separate
+    ids = ["a", "b", "c", "d"]
+    done = {"a", "b", "c"}  # files in wavs_clean
+    quality = {"a": {"source": "separated"}, "b": {"source": "original"}, "c": {"source": "original"}}
+    assert ids_to_separate(ids, done, quality) == ["d"]
+    # --redo-original: kept originals carry a background bed (median -18 dB vs -63 dB separated, 2026-10-29)
+    assert ids_to_separate(ids, done, quality, redo_original=True) == ["b", "c", "d"]
+    # a restart skips clips a shard file already holds from this run
+    assert ids_to_separate(ids, done, quality, redo_original=True, in_shards={"b"}) == ["c", "d"]

@@ -85,6 +85,9 @@ def main() -> int:
     ap.add_argument("--long-root", default="data/dataset_long", help="merged clips (ttsdata merge-clips); '' to skip")
     ap.add_argument("--long-wavs", default="wavs_clean")
     ap.add_argument("--stage", type=int, default=1, choices=(1, 2), help="1 plain prosody; 2 labels + event clips")
+    ap.add_argument("--max-music-db", type=float, default=-10.0,
+                    help="music gate for clips kept as the original (-40 after separating everything: truly clean only)")
+    ap.add_argument("--max-music-db-separated", type=float, default=0.0, help="music gate for separated clips")
     ap.add_argument("--events-root", default="data/dataset_events", help="event-extended clips (ttsdata extend-events); '' to skip")
     ap.add_argument("--events-wavs", default="wavs_clean")
     ap.add_argument("--event-evidence", default="laugh_syllables,tagger,clean", help="accepted verification evidence levels")
@@ -148,7 +151,8 @@ def main() -> int:
         soundtags = {t["id"]: t for p in tag_files for t in load_jsonl(p)}
     else:
         print("[warn] no soundtags.jsonl: run ttsdata soundtags to drop overlapping / foreign / censored clips")
-    tier_kw = dict(max_cer=a.max_cer, min_cluster=a.min_cluster, soundtags=soundtags, stage=a.stage)
+    tier_kw = dict(max_cer=a.max_cer, min_cluster=a.min_cluster, soundtags=soundtags, stage=a.stage,
+                   max_music_db=a.max_music_db, max_music_db_separated=a.max_music_db_separated)
     rows = combine_units(singles, merged, quality, **tier_kw)
     units = rows  # kept so an event row whose tag is not written can hand its place back to its base clip
     events_root = Path(a.events_root) if a.events_root and a.stage >= 2 else None

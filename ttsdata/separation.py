@@ -1,7 +1,9 @@
 """Decide, per clip, whether the vocal stem from a music separator should replace the original audio.
 
-Separators (BS-Roformer and friends) also colour clean speech slightly, so a clip only switches to its
-separated vocals when the instrumental stem is loud enough relative to the vocals to matter.
+Separators (BS-Roformer and friends) also colour clean speech slightly, so by default a clip only switches to its
+separated vocals when the instrumental stem is loud enough relative to the vocals to matter. Measured 2026-10-29:
+truly clean speech (TTS output, separated vocals) scores about -60 dB; kept TV originals scored -18 dB median, a
+background bed a model trained on them reproduces. Training sets therefore use --threshold-db -200 (separate all).
 """
 from __future__ import annotations
 
@@ -29,7 +31,7 @@ def choose_source(music_db: float, threshold_db: float = -10.0, vocal_ratio: flo
                   min_vocal_ratio: float = 0.25) -> str:
     """'separated' when the instrumental sits at or above threshold_db relative to the vocals, else 'original'.
 
-    The separator leaves a -12..-25 dB "instrumental" residue even on clean read speech, hence the -10 dB default.
+    -12..-25 dB on TV dialogue is ambience / a quiet music bed, not separator residue (clean speech is ~-60 dB).
     The original is kept when the stems are unreliable: instrumental louder than the voice (music_db > 0, the voice
     went into the wrong stem) or the vocal stem holding under min_vocal_ratio of the original's RMS."""
     if music_db > 0.0:
@@ -74,6 +76,14 @@ def event_base_ids(rows: list[dict], event_rows: list[dict]) -> set[str]:
     bases need cleaning too even though the manifest itself lists the event clip instead."""
     used = manifest_ids(rows, "dataset_events")
     return {e["base"] for e in event_rows if e["id"] in used and e.get("base")}
+
+
+def ids_to_separate(ids: list[str], done: set[str], quality: dict[str, dict], redo_original: bool = False,
+                    in_shards: set[str] | frozenset = frozenset()) -> list[str]:
+    """Clips still to separate: no file in the output folder yet, or (redo_original) kept as the original last time.
+    Clips a shard file already holds from an interrupted run are skipped."""
+    return [i for i in ids if i not in in_shards and
+            (i not in done or (redo_original and (quality.get(i) or {}).get("source") == "original"))]
 
 
 def shard(ids: list[str], k: int, n: int) -> list[str]:

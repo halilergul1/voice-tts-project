@@ -27,8 +27,8 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.separation import (alias, choose_source, event_base_ids, loudness_normalize, manifest_ids,  # noqa: E402
-                                merge_separation, relative_loudness_db, shard, stems_for)
+from ttsdata.separation import (alias, choose_source, event_base_ids, ids_to_separate, loudness_normalize,  # noqa: E402
+                                manifest_ids, merge_separation, relative_loudness_db, shard, stems_for)
 
 DEFAULT_MODEL = "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
 
@@ -65,6 +65,8 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--manifests", default="", help="comma-separated manifest jsonl files: only the clips they use")
     ap.add_argument("--shard", default="", help="K/N: clean part K of N (0-based) and write a shard result file")
+    ap.add_argument("--redo-original", action="store_true",
+                    help="also re-run clips kept as the original last time (with --threshold-db -200: separate all)")
     ap.add_argument("--merge", action="store_true", help="fold <root>/separation.shard*.jsonl into quality.jsonl and exit")
     a = ap.parse_args()
     root = Path(a.root)
@@ -97,7 +99,13 @@ def main() -> int:
         print(f"--manifests: {len(rows)} clips of {root} are used by {a.manifests}")
     if a.limit:
         rows = rows[: a.limit]
-    todo = [r["id"] for r in rows if not (out_dir / f"{r['id']}.wav").exists()]
+    prev = {}
+    if a.redo_original and qfile.exists():
+        prev = {q["id"]: q for q in map(json.loads, filter(str.strip, qfile.read_text(encoding="utf-8").splitlines()))}
+    in_shards = {json.loads(l)["id"] for f in root.glob("separation.shard*.jsonl")
+                 for l in f.read_text(encoding="utf-8").splitlines() if l.strip()}
+    done = {p.stem for p in out_dir.glob("*.wav")}
+    todo = ids_to_separate([r["id"] for r in rows], done, prev, a.redo_original, in_shards)
     shard_file = None
     if a.shard:
         k, n = (int(x) for x in a.shard.split("/"))

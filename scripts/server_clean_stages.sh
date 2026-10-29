@@ -5,7 +5,11 @@
 # Resumable: each stage writes data/logs/clean_<stage>_done and is skipped when it exists (delete it to redo a stage).
 #   tmux new -d -s clean 'scripts/server_clean_stages.sh >> data/logs/clean_stages.log 2>&1'
 # Env: PY (project venv), SEP_PY (venv with audio-separator: scripts/astrobot_setup_sep.sh), WORKERS, MAX_HOURS,
-#      AUTO_CONF, MIN_TAG (as in server_label_stages.sh), SEP_BATCH (clips per separator call), SEP_JOBS (workers).
+#      AUTO_CONF, MIN_TAG (as in server_label_stages.sh), SEP_BATCH (clips per separator call), SEP_JOBS (workers),
+#      SEP_EXTRA (extra separate_vocals.py flags), MANIFEST_EXTRA (extra make_voxcpm_manifest.py flags).
+# Separate everything (2026-10-29: kept originals carried a -18 dB background bed the stage 1 model reproduced):
+#   rm data/logs/clean_{sep_*,quality*,manifest*,stages}_done
+#   SEP_EXTRA="--threshold-db -200 --redo-original" MANIFEST_EXTRA="--max-music-db -40" scripts/server_clean_stages.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="${PY:-.venv/bin/python}"
@@ -16,6 +20,8 @@ AUTO_CONF="${AUTO_CONF:-angry=0.70,sad=0.85,happy=0.99}"
 MIN_TAG="${MIN_TAG:-150}"
 SEP_BATCH="${SEP_BATCH:-64}"
 SEP_JOBS="${SEP_JOBS:-6}"
+SEP_EXTRA="${SEP_EXTRA:-}"
+MANIFEST_EXTRA="${MANIFEST_EXTRA:-}"
 LOG=data/logs
 mkdir -p "$LOG"
 RAW="data/voxcpm_rawwavs data/voxcpm_stage2_rawwavs"
@@ -61,7 +67,7 @@ separate() {  # separate <root>: SEP_JOBS parallel workers (one keeps the GPU mo
     local root=$1 k rc=0 pids=()
     for k in $(seq 0 $((SEP_JOBS - 1))); do
         "$SEP_PY" scripts/separate_vocals.py --root "$root" --manifests "$MANIFESTS" --batch "$SEP_BATCH" \
-            --shard "$k/$SEP_JOBS" > "$LOG/clean_sep_$(basename "$root")_$k.log" 2>&1 &
+            --shard "$k/$SEP_JOBS" $SEP_EXTRA > "$LOG/clean_sep_$(basename "$root")_$k.log" 2>&1 &
         pids+=($!)
     done
     for k in "${pids[@]}"; do wait "$k" || rc=$?; done
@@ -78,8 +84,8 @@ stage quality_long   audit data/dataset_long
 stage quality        audit data/dataset
 
 CLEAN="--wavs wavs_clean --long-wavs wavs_clean --events-wavs wavs_clean --max-hours $MAX_HOURS"
-stage manifest1 "$PY" scripts/make_voxcpm_manifest.py --stage 1 --out data/voxcpm $CLEAN
-stage manifest2 "$PY" scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 $CLEAN \
+stage manifest1 "$PY" scripts/make_voxcpm_manifest.py --stage 1 --out data/voxcpm $CLEAN $MANIFEST_EXTRA
+stage manifest2 "$PY" scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 $CLEAN $MANIFEST_EXTRA \
     --auto-styles --auto-conf "$AUTO_CONF" --min-tag "$MIN_TAG"
 touch "$LOG/clean_stages_done"
 echo "all clean stages done $(date '+%F %T')"
