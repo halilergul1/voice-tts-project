@@ -1,7 +1,8 @@
 # Stage 1 "prosody" LoRA on VoxCPM2: upstream conf/voxcpm_v2/voxcpm_finetune_lora.yaml with the plan's settings
-# (docs/superpowers/plans/2026-10-26-voxcpm2-stage01.md, Task 6). Run 2: one epoch of data/voxcpm rebuilt with every
-# clip vocal-separated and English voice descriptions on 21% of rows (42,049 train rows):
-# num_iters = max_steps = ceil(42049 / 16) = 2629. Run 1 (stage1/, 2626 steps) trained on the build without them.
+# (docs/superpowers/plans/2026-10-26-voxcpm2-stage01.md, Task 6). Run 3: one epoch of data/voxcpm rebuilt on the
+# Sidon-restored clips (scripts/server_sidon_stages.sh) with English voice descriptions (42,013 train rows):
+# num_iters = max_steps = ceil(42013 / 16) = 2626. Run 1 (stage1/) trained on partly separated audio, run 2 (stage1_v2/,
+# 2629 steps) on fully separated audio.
 pretrained_path: /home/ibrahim/tts/models/VoxCPM2
 train_manifest: /home/ibrahim/voice-data/data/voxcpm/train.jsonl
 val_manifest: /home/ibrahim/voice-data/data/voxcpm/val.jsonl
@@ -11,18 +12,18 @@ batch_size: 4
 grad_accum_steps: 4  # batch 16 and 8 ran out of memory on the 32 GB 5090 (rows up to 20 s + a reference clip); effective batch stays 16
 num_workers: 4
 preprocessing_num_workers: 8
-num_iters: 2629
+num_iters: 2626
 log_interval: 10
 valid_interval: 250
 save_interval: 250
 learning_rate: 0.0001
 weight_decay: 0.01
 warmup_steps: 100
-max_steps: 2629
+max_steps: 2626
 max_batch_tokens: 8192
 max_grad_norm: 1.0
-save_path: /home/ibrahim/tts/checkpoints/stage1_v2
-tensorboard: /home/ibrahim/tts/logs/stage1_v2
+save_path: /home/ibrahim/tts/checkpoints/stage1_v3
+tensorboard: /home/ibrahim/tts/logs/stage1_v3
 lambdas:
   loss/diff: 1.0
   loss/stop: 1.0

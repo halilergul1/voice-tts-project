@@ -174,3 +174,44 @@ does not use it). Miipher-2 (Google) is not public; VoiceBridge has no released 
   ediyorum"): unusable here.
 - ClearerVoice keeps voice and words but barely changes quality: it does not remove the room sound.
 - Sidon stays the pick. Page: `data/listening_sample/restoration_compare.html`.
+
+## Run 3 (2026-10-30): Sidon-restored training audio
+
+`scripts/server_sidon_stages.sh` (a0e7445, ed18db8): every separated clip re-cut with 0.5 s context, music removed,
+Sidon, trimmed back; fallback to the music-removed clip on a faded ending (> 6 dB) or changed words (Whisper CER
+> 0.05 worse). Kept Sidon: dataset 39,152 of 49,245 (7,092 ending + 3,001 word fallbacks), dataset_long 20,424 of
+24,470 (3,407 + 639). Event clips keep wavs_clean (Sidon strips the laughs/breaths they carry). Stage 1 rebuilt:
+60.03 h, train 42,013 / val 797, voice descriptions on 8,952 rows. Same recipe, 2626 steps (`checkpoints/stage1_v3`).
+Scored with "(A man's voice)"; corpus set is the original one (2 of its 50 sentences in train).
+
+| checkpoint | corpus WER | corpus CER | corpus UTMOS | Freya100 WER | Freya100 CER | Freya100 UTMOS | UTMOS p10 | voice consistency |
+|---|---|---|---|---|---|---|---|---|
+| step 250 | 0.057 | 0.021 | 2.46 | 0.021 | 0.009 | 2.67 | 1.69 | 0.501 |
+| step 500 | 0.050 | 0.022 | 2.71 | 0.026 | 0.009 | 2.84 | 2.13 | 0.491 |
+| step 750 | 0.042 | 0.018 | 2.85 | 0.019 | 0.008 | 2.85 | 2.10 | 0.499 |
+| step 1000 | 0.065 | 0.023 | 2.60 | 0.021 | 0.011 | 2.75 | 2.19 | 0.484 |
+| step 1250 | 0.034 | 0.013 | 2.87 | 0.019 | 0.007 | 2.93 | 2.33 | 0.507 |
+| step 1500 | 0.053 | 0.021 | 2.62 | 0.016 | 0.005 | 2.73 | 2.04 | 0.510 |
+| step 1750 | 0.050 | 0.020 | 2.68 | 0.012 | 0.004 | 2.75 | 1.97 | 0.523 |
+| step 2000 | 0.044 | 0.015 | 2.70 | 0.023 | 0.007 | 2.75 | 2.06 | 0.515 |
+| step 2250 | 0.049 | 0.016 | 2.73 | 0.020 | 0.009 | 2.83 | 2.15 | 0.517 |
+| step 2500 | 0.052 | 0.018 | 2.66 | 0.017 | 0.008 | 2.79 | 2.07 | 0.511 |
+| step 2626 (end) | 0.023 | 0.011 | 2.65 | 0.019 | 0.009 | 2.83 | 2.24 | 0.512 |
+
+Comparison on the same sets (Freya100 = first 100 Freya sentences; corpus = original held-out set):
+
+| system | corpus WER | Freya100 WER | Freya100 UTMOS (p10) | PESQ est. (p10) | music_db p90 | male prompt female-range | female prompt female-range |
+|---|---|---|---|---|---|---|---|
+| Trendyol-TTS | 0.025 | 0.004 | 2.99 | 3.85 (3.60) | -58.6 | – | – |
+| VoxCPM2 untrained | 0.028 | 0.012 | 2.77 (1.93 on 495) | 3.41 (2.42) | -29.1 | 27% | 93% |
+| run 2 end | 0.059 | 0.007 | 2.48 (1.82) | 3.09 (1.81) | -50.7 | 23% | 97% |
+| run 3 end | 0.023 | 0.019 | 2.83 (2.24) | 3.58 (2.98) | -60.8 | 30% | 80% |
+
+- Sidon training audio lifts output quality above the untrained model on every quality measure (UTMOS, UTMOS p10,
+  PESQ estimate) and gives the best TV-line WER of any system (2.3% vs Trendyol 2.5%), background at Trendyol's level.
+- Freya WER rose to 1.9% (run 2 0.7%): single-sound slips ("saat üç buçuğa" heard as "sağ üç beşa", "mantı" as
+  "mantık"), not dropped chunks. Plan rule (Freya WER within 1 point of Trendyol, then lowest corpus CER) picks
+  step 1750 (Freya 1.2%), which once read the prompt aloud ("apropyalı ..."). Gender prompts are followed a little
+  less than in run 2.
+- Exit gate on the numbers: Freya WER 1.9% (gate 0.9%) not met; UTMOS p10 2.24 > untrained 1.93 met; voice consistency
+  0.51 > 0.44 met. Listening page: `data/listening_sample/stage1_v3_listen.html`.
