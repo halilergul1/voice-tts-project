@@ -6,7 +6,7 @@
 # Env: PY, MODELS, CKPT (checkpoint folder), FREYA_N, TAG (run prefix, default s1), PROMPT (voice-design prefix; unset
 # keeps eval_tts.py's default, '' disables), REF_WAV (clone this clip's voice), PROMPT_WAV (continue from this clip;
 # transcript from its .txt), CFG (guidance, default 2.0).
-# Best stage 1 setting so far (run 4): PROMPT='' REF_WAV=data/eval/refs/ref_male.wav PROMPT_WAV=data/eval/refs/ref_male.wav CFG=3.0.
+# Best stage 1 setting so far (run 4): PROMPT='' REF_WAV=data/eval/refs/ref_male_b.wav PROMPT_WAV=data/eval/refs/ref_male_b.wav CFG=3.0.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="${PY:-$HOME/tts/venv-voxcpm/bin/python}"

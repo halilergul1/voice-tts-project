@@ -452,3 +452,46 @@ clips by CPPS), then continue + clone, cfg 3.0, run 4 end, 40 Freya sentences:
 - The FLEURS clip drifts to a high voice (65%) with very low UTMOS: read-speech clips are no good as the clip.
 - Clips copied to `data/eval/refs/ref_male_{a,b,fleurs}.wav` (+ .txt). Listening page:
   `data/listening_sample/stage1_clear_voice.html`.
+
+### Clip B on the full sets; robotic-bit probes (2026-10-31)
+
+Listener: clip B is better (cleaner), but a robotic sound still appears in some words. Clip B, continue + clone, cfg 3.0,
+run 4 end (`scripts/score_stage1.sh` best-setting note now points at `ref_male_b.wav`):
+
+| system | WER | PESQ (p10) | UTMOS (p10) | female-range | consistency | CPPS | syl/s |
+|---|---|---|---|---|---|---|---|
+| Freya100: Trendyol-TTS | 0.4% | 3.85 (3.60) | 3.01 (2.67) | 0% | 0.79 | - | 6.38 |
+| Freya100: continue `ref_male.wav` | 0.5% | 3.81 (3.40) | 2.74 (2.34) | 0% | 0.86 | - | 7.18 |
+| Freya100: continue clip B | 0.5% | 4.19 (3.93) | 3.08 (2.74) | 6% | 0.83 | 10.49 | 6.97 |
+| corpus 50: Trendyol-TTS | 2.5% | 3.83 (3.60) | 3.04 (2.55) | 0% | 0.78 | - | 5.89 |
+| corpus 50: continue `ref_male.wav` | 2.3% | 3.83 (3.47) | 2.76 (2.38) | 0% | 0.84 | - | 6.61 |
+| corpus 50: continue clip B | 2.8% | 4.16 (3.89) | 3.06 (2.68) | 12% | 0.80 | 10.48 | 6.56 |
+
+- Exit gate with clip B: Freya WER 0.5% vs 0.4% met; UTMOS p10 2.74 > 1.93 met; consistency 0.83 > 0.44 met;
+  preference pending: round 3 blind page `data/listening_sample/stage1_ab_blind3.html` (Freya k 64-75 + corpus k 1, 6,
+  11, 16, 21, 26, 31, 36, none used in rounds 1-2; seed 20261131).
+- Clip B beats Trendyol on PESQ and UTMOS on both sets; female-range creeps back (6% / 12%; clip B is 138 Hz, higher
+  than `ref_male.wav` at 121 Hz).
+
+Robotic-bit probes, clip B, 40 Freya sentences (no metric measures the robotic bits; listening page
+`data/listening_sample/stage1_robotic_probes.html`, 8 sentences x 6 versions):
+
+| setting | PESQ (p10) | UTMOS (p10) | WER | female-range | consistency | CPPS | syl/s |
+|---|---|---|---|---|---|---|---|
+| Trendyol-TTS | 3.89 (3.56) | 3.04 (2.82) | 0.3% | 0% | 0.79 | 10.18 | 6.48 |
+| clip B, cfg 3.0 | 4.14 (3.90) | 3.06 (2.83) | 0.2% | 2% | 0.84 | 10.59 | 7.05 |
+| clip B, cfg 2.5 | 4.13 (3.88) | 3.03 (2.69) | 0.2% | 10% | 0.84 | 10.54 | 7.08 |
+| clip B music-removed only (not Sidon) | 3.12 (2.24) | 2.49 (1.95) | 0.9% | 5% | 0.83 | 9.54 | 6.89 |
+| clip B, run 4 step 1250 | 4.18 (4.05) | 3.11 (2.81) | 0.5% | 5% | 0.85 | 10.90 | 7.22 |
+| clip B, VoxCPM2 untrained | 4.24 (4.10) | 3.07 (2.77) | 1.1% | 8% | 0.85 | 11.01 | 6.41 |
+| clip B output + Sidon post-filter (24 kHz) | 4.17 (3.81) | 3.10 (2.64) | 0.5% | 2% | 0.81 | 10.43 | 7.01 |
+| clip B seed 1042 | 4.23 (3.97) | 3.06 (2.81) | 0.8% | 8% | 0.84 | 10.42 | 6.99 |
+| clip B seed 2042 | 4.15 (3.94) | 3.10 (2.76) | 0.0% | 5% | 0.84 | 10.40 | 7.02 |
+| best of 3 seeds (lowest CER, then highest UTMOS) | 4.14 (3.91) | 3.18 (2.91) | 0.0% | 8% | 0.84 | 10.54 | 6.98 |
+
+- The Sidon-restored clip is the right prompt: its music-removed original gives much worse audio (PESQ 3.12).
+- Sidon as a post-filter changes nothing measurable (worst-10% PESQ and UTMOS slightly lower).
+- Best of 3 takes: WER 0%, UTMOS up, but UTMOS chose the takes so it is inflated; PESQ (not used to pick) is unchanged.
+  The 3 seeds won evenly (13 / 13 / 14), so take-to-take variation is real.
+- The untrained model with clip B is as clean as run 4 by the metrics and speaks at Trendyol's pace (6.41), but has
+  more word errors (1.1%); step 1250 is level with the end checkpoint.
