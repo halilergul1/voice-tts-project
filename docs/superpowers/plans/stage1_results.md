@@ -260,3 +260,49 @@ Training data of run 3 (65.4 h incl. FLEURS replay), SQUIM PESQ on 150 random cl
   the likely source of the thin, robotic voices left in run 3. Female Sidon clips are not worse than male ones.
 - 86.4 h of Sidon-kept clips exist in dataset + dataset_long, so a 60 h build can drop every fallback clip.
 - Listening page: `data/listening_sample/stage1_v3_settings.html`.
+
+## Run 4 (2026-10-30): clean clips only
+
+`make_voxcpm_manifest.py --restored-only` (b675694) keeps only clips Sidon restored (single clips 39,152 of 49,245,
+merged 20,424 of 24,470); FLEURS replay restored with `scripts/sidon_fleurs.py` (1,914 of 2,034 readable clips kept:
+113 faded endings, 7 changed words). Build `data/voxcpm_v4`: 60.02 h, train 42,050 / val 811, every corpus row,
+reference clip and replay row checked as Sidon-restored. Same recipe as run 3, 2629 steps (`checkpoints/stage1_v4`),
+30 min training. Command: `--stage 1 --out data/voxcpm_v4 --wavs wavs_sidon --long-wavs wavs_sidon --events-wavs
+wavs_clean --max-hours 60 --restored-only --replay-dir data/fleurs_tr_sidon --speaker-gender
+data/dataset/speaker_gender.jsonl --voice-desc-lang en`.
+
+| checkpoint | corpus WER | corpus UTMOS (p10) | Freya100 WER | Freya100 UTMOS (p10) | voice consistency |
+|---|---|---|---|---|---|
+| step 250 | 0.045 | 2.89 (2.34) | 0.022 | 2.98 (2.42) | 0.527 |
+| step 500 | 0.040 | 2.75 (2.02) | 0.007 | 2.94 (2.18) | 0.540 |
+| step 750 | 0.045 | 2.72 (2.07) | 0.020 | 2.89 (2.29) | 0.529 |
+| step 1000 | 0.045 | 3.06 (2.62) | 0.015 | 2.99 (2.41) | 0.534 |
+| step 1250 | 0.041 | 2.90 (2.27) | 0.022 | 2.88 (2.33) | 0.541 |
+| step 1500 | 0.058 | 2.80 (2.12) | 0.021 | 2.82 (2.17) | 0.541 |
+| step 1750 | 0.034 | 2.83 (2.08) | 0.017 | 2.88 (2.25) | 0.538 |
+| step 2000 | 0.045 | 2.79 (2.19) | 0.015 | 2.88 (2.20) | 0.521 |
+| step 2250 | 0.042 | 2.81 (2.18) | 0.022 | 2.86 (2.14) | 0.530 |
+| step 2500 | 0.041 | 2.74 (2.11) | 0.016 | 2.87 (2.27) | 0.537 |
+| step 2629 (end) | 0.038 | 2.75 (2.12) | 0.017 | 2.88 (2.33) | 0.528 |
+
+Run 3 end for comparison: corpus WER 0.023, corpus UTMOS 2.65, Freya100 WER 0.019, UTMOS 2.83 (2.24), consistency 0.512.
+
+First 40 Freya sentences, end checkpoints:
+
+| system | PESQ est. (p10) | UTMOS (p10) | WER | female-range | voice consistency |
+|---|---|---|---|---|---|
+| Trendyol-TTS | 3.89 (3.56) | 3.04 (2.82) | 0.3% | 0% | 0.79 |
+| run 3, male prompt | 3.63 (3.06) | 2.99 (2.29) | 1.8% | 32% | 0.52 |
+| run 4, male prompt | 3.64 (3.10) | 2.96 (2.39) | 1.3% | 28% | 0.55 |
+| run 3, male prompt, cfg 3.0 | 3.65 (3.02) | 3.05 (2.33) | 0.8% | 40% | 0.54 |
+| run 4, male prompt, cfg 3.0 | 3.54 (2.87) | 3.11 (2.10) | 0.7% | 30% | 0.59 |
+| run 3, clone male clip, cfg 3.0 | 3.51 (3.13) | 2.89 (2.34) | 1.7% | 12% | 0.76 |
+| run 4, clone male clip, cfg 3.0 | 3.74 (3.28) | 2.93 (2.65) | 0.5% | 8% | 0.79 |
+
+- With the text prompt run 4 is a small step over run 3 (Freya WER 1.7% vs 1.9%, UTMOS p10 2.33 vs 2.24, voice
+  consistency up); the female-range gap stays (Freya100 UTMOS 2.53 female-range vs 3.04 male-range), so the thin voice
+  under the text prompt is mostly the prompt picking a random high voice, not only the data.
+- Corpus WER rose to 3.8% (run 3 2.3%; 50 TV lines, a handful of words).
+- Run 4 + cloning a clean male clip with cfg 3.0 is the best setting so far: WER 0.5%, voice consistency 0.79 and
+  female-range 8% (Trendyol 0.3% / 0.79 / 0%), worst-10% PESQ 3.28 and UTMOS 2.65 (run 3 same setting 3.13 / 2.34).
+- Listening page: `data/listening_sample/stage1_v4_listen.html`.
