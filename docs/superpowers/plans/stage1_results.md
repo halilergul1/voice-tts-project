@@ -378,3 +378,27 @@ Fixes tried on the same 40 sentences (VoxCPM2 `generate` has no speed setting):
   (0% female-range) and gives the steadiest voice (0.86, above Trendyol 0.79), is ~6% slower than cloning, but UTMOS
   is lower (2.72).
 - Listening page: `data/listening_sample/stage1_speed_fixes.html` (8 sentences where ours is fastest, 5 versions).
+
+### Continue clip on the full scored sets (2026-10-31)
+
+Listener pick from the speed page: "continue clip". Run 4 end, continue from `ref_male.wav` and clone it
+(`--prompt-wav` + `--ref-wav`, no text prompt), cfg 3.0; `scripts/score_stage1.sh` takes `PROMPT_WAV`:
+
+| system | WER | PESQ (p10) | UTMOS (p10) | female-range | voice consistency | syl/s |
+|---|---|---|---|---|---|---|
+| Freya100: Trendyol-TTS | 0.4% | 3.85 (3.60) | 3.01 (2.67) | 0% | 0.79 | 6.38 |
+| Freya100: run 4 clone (previous best) | 1.3% | 3.65 (3.00) | 2.87 (2.46) | 9% | 0.78 | 7.58 |
+| Freya100: run 4 continue clip | 0.5% | 3.81 (3.40) | 2.74 (2.34) | 0% | 0.86 | 7.18 |
+| corpus 50: Trendyol-TTS | 2.5% | 3.83 (3.60) | 3.04 (2.55) | 0% | 0.78 | 5.89 |
+| corpus 50: run 4 clone (previous best) | 4.5% | 3.71 (3.15) | 2.90 (2.34) | 14% | 0.75 | 7.10 |
+| corpus 50: run 4 continue clip | 2.3% | 3.83 (3.47) | 2.76 (2.38) | 0% | 0.84 | 6.61 |
+
+(WER/PESQ/UTMOS/consistency from `sweep_summary.py` on the same first-N sentences, so Trendyol's Freya figures are
+its first 100, not the 495 in `summary.md`.)
+
+- Exit gate: Freya WER 0.5% vs Trendyol 0.4%, within 0.5 points: met (was not met with cloning); UTMOS p10 2.34 >
+  1.93 met; consistency 0.86 > 0.44 met. Listener preference pending: round 2 blind page
+  `data/listening_sample/stage1_ab_blind2.html` (Freya k 52-63 + corpus k 2, 7, 12, 17, 22, 27, 32, 40, none used in
+  round 1; seed 20261031).
+- On TV lines it now beats Trendyol on WER, matches its clarity (PESQ 3.83), never drifts to a high voice, and keeps one
+  voice better than Trendyol; UTMOS stays ~0.25 lower and speech is still ~12% faster.

@@ -4,8 +4,9 @@
 # checkpoint writes data/logs/score_s1_step<N>_done. Run after training (both on one 32 GB GPU do not fit).
 #   tmux new -d -s score1 'scripts/score_stage1.sh >> data/logs/score_stage1.log 2>&1'
 # Env: PY, MODELS, CKPT (checkpoint folder), FREYA_N, TAG (run prefix, default s1), PROMPT (voice-design prefix; unset
-# keeps eval_tts.py's default, '' disables), REF_WAV (clone this clip's voice), CFG (guidance, default 2.0).
-# Best stage 1 setting so far (run 4): PROMPT='' REF_WAV=data/eval/refs/ref_male.wav CFG=3.0.
+# keeps eval_tts.py's default, '' disables), REF_WAV (clone this clip's voice), PROMPT_WAV (continue from this clip;
+# transcript from its .txt), CFG (guidance, default 2.0).
+# Best stage 1 setting so far (run 4): PROMPT='' REF_WAV=data/eval/refs/ref_male.wav PROMPT_WAV=data/eval/refs/ref_male.wav CFG=3.0.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 PY="${PY:-$HOME/tts/venv-voxcpm/bin/python}"
@@ -16,6 +17,7 @@ TAG="${TAG:-s1}"
 PARGS=()
 [ "${PROMPT+set}" = set ] && PARGS=(--prompt "$PROMPT")
 [ -n "${REF_WAV:-}" ] && PARGS+=(--ref-wav "$REF_WAV")
+[ -n "${PROMPT_WAV:-}" ] && PARGS+=(--prompt-wav "$PROMPT_WAV")
 [ -n "${CFG:-}" ] && PARGS+=(--cfg "$CFG")
 LOG=data/logs
 for d in "$CKPT"/step_*; do
