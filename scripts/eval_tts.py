@@ -5,6 +5,7 @@
   eval_tts.py synth --system voxcpm2-lora --lora ~/tts/checkpoints/stage1/step_0001000 --run s1_step1000 ...
   eval_tts.py synth --system trendyol --run s0_trendyol ...
   eval_tts.py synth --system voxcpm2-lora ... --ref-wav clip.wav --prompt ''   # clone the voice of clip.wav
+  eval_tts.py synth --system voxcpm2-lora ... --prompt-wav clip.wav --prompt ''   # continue from clip.wav (+ clip.txt)
   eval_tts.py score --run s0_voxcpm2 --sentences data/eval/freya_tr_eval.txt [--utmos 0] [--spk 0]
   eval_tts.py all   ... (synth then score, same flags)
 
@@ -113,6 +114,12 @@ def _load_voxcpm(system: str, model_dir: str | None, lora: str | None, device: s
     return model
 
 
+def _clip_transcript(wav: str) -> str:
+    """Transcript of a prompt clip: the .txt next to it, either plain text or "<clip id>\t<text>"."""
+    t = Path(wav).with_suffix(".txt").read_text(encoding="utf-8").strip()
+    return t.split("\t", 1)[1].strip() if "\t" in t else t
+
+
 def cmd_synth(a) -> None:
     sentences = [l.strip() for l in Path(a.sentences).read_text(encoding="utf-8").splitlines() if l.strip()]
     if a.limit:
@@ -127,6 +134,7 @@ def cmd_synth(a) -> None:
     gen_sig = inspect.signature(inner).parameters
     takes_kwargs = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in gen_sig.values())
     prompt = a.prompt if a.prompt is not None else (DEFAULT_PROMPT if a.system != "trendyol" else "")
+    prompt_wav_text = _clip_transcript(a.prompt_wav) if a.prompt_wav else None
     synth_file = run_dir / "synth.jsonl"
     rows_by_k: dict[int, dict] = {}
     if synth_file.exists() and not a.force:
@@ -152,6 +160,8 @@ def cmd_synth(a) -> None:
                     kw[key] = val
             if a.ref_wav:
                 kw["reference_wav_path"] = a.ref_wav  # VoxCPM2 cloning: the voice of this clip, no transcript needed
+            if a.prompt_wav:
+                kw["prompt_wav_path"], kw["prompt_text"] = a.prompt_wav, prompt_wav_text  # continuation of this clip
             import torch
 
             torch.manual_seed(a.seed + k)
@@ -166,7 +176,7 @@ def cmd_synth(a) -> None:
             write_synth()
             print(f"[{k + 1}/{len(sentences)}] {row['audio_sec']} s audio in {row['gen_sec']} s (rtf {row['rtf']})")
     (run_dir / "run.json").write_text(json.dumps({"system": a.system, "lora": a.lora, "model_dir": a.model_dir,
-                                                  "prompt": prompt, "ref_wav": a.ref_wav, "cfg": a.cfg, "steps": a.steps,
+                                                  "prompt": prompt, "ref_wav": a.ref_wav, "prompt_wav": a.prompt_wav, "cfg": a.cfg, "steps": a.steps,
                                                   "seed": a.seed, "device": device, "sample_rate": sr, "sentences": a.sentences,
                                                   "n": len(sentences), "date": date.today().isoformat()},
                                                  ensure_ascii=False, indent=2), encoding="utf-8")
@@ -275,6 +285,8 @@ def main() -> int:
             s.add_argument("--model-dir", default=None, help="local model folder instead of the HF id")
             s.add_argument("--prompt", default=None, help="voice-design prefix; '' disables; default: Turkish male prompt")
             s.add_argument("--ref-wav", default=None, help="reference clip whose voice VoxCPM2 clones (reference_wav_path)")
+            s.add_argument("--prompt-wav", default=None,
+                           help="clip VoxCPM2 continues from (prompt_wav_path); its transcript is the .txt next to it")
             s.add_argument("--cfg", type=float, default=2.0)
             s.add_argument("--steps", type=int, default=16)
             s.add_argument("--seed", type=int, default=42)

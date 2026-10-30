@@ -323,5 +323,58 @@ Run 4 end + clone `ref_male.wav` (train clip `ET85vl6YRBE_01406`, 121 Hz) + cfg 
 - Corpus WER: most counted errors are spelling variants Trendyol also gets ("valla", "arabada", "rusçarı");
   real slips include a dropped first word in 3 sentences ("Şey,", "Ay", "Garsona") and "harlayayım" heard as "ağırlayayım".
 - Exit gate: UTMOS p10 2.46 > 1.93 met; voice consistency 0.78 > 0.44 met; Freya WER 1.3% vs Trendyol 0.4%
-  (gate within 0.5 points) not met; listener preference (>= 12 of 20) pending: blind page
+  (gate within 0.5 points) not met; listener preference (>= 12 of 20) see below: blind page
   `data/listening_sample/stage1_ab_blind.html` (12 Freya k 40-51 + 8 corpus lines, sides shuffled, seed 20261030).
+
+### Blind A/B result and fast speech (2026-10-30)
+
+Listener result: ours preferred 4, Trendyol preferred 6, same 10. Gate (ours >= 12 of 20) not met, so with the Freya
+WER gate also missed, stage 1 run 4 fails the exit gate (2 of 4 met). Listener note: some of ours speak a bit fast.
+
+Speaking rate (syllables per second of speech, Turkish syllables = vowels, leading/trailing silence trimmed;
+server `data/speech_rate.py`):
+
+| audio | median syl/s (p10-p90) |
+|---|---|
+| Trendyol-TTS, Freya 495 | 6.46 (5.70-7.18) |
+| VoxCPM2 untrained, Freya 495 | 6.25 (5.16-7.54) |
+| run 4, male prompt, cfg 2.0, Freya100 | 6.66 (5.75-8.15) |
+| run 4 best (clone + cfg 3.0), Freya100 | 7.58 (6.51-8.68) |
+| Trendyol-TTS, corpus 50 | 5.89 |
+| run 4 best, corpus 50 | 7.10 |
+| run 4 training clips (400 sample) | 5.56 (3.83-7.34) |
+| `ref_male.wav` (the cloned clip) | 5.59 |
+
+- The best setting speaks ~17% faster than Trendyol (Freya) and ~20% faster on TV lines; on the 20 blind items the
+  median ratio ours/Trendyol is x1.19 and 13 of 20 are more than 10% faster.
+- Not inherited: the cloned clip (5.59) and the training clips (5.56) are slower than Trendyol.
+- Two causes, same 40 Freya sentences: with the text prompt, guidance speeds speech (run 4 cfg 2.0 6.64 -> cfg 3.0
+  7.43; run 3 16 steps 7.03 -> 7.73, 32 steps 7.31 -> 7.48); with cloning, speech is fast at any guidance:
+
+| run 4, clone `ref_male.wav` | syl/s (p10-p90) | PESQ (p10) | UTMOS (p10) | WER | female-range | consistency |
+|---|---|---|---|---|---|---|
+| cfg 2.0 | 7.39 (6.15-9.19) | 3.56 (2.76) | 2.90 (2.28) | 4.4% | 18% | 0.74 |
+| cfg 2.5 | 7.42 (6.42-8.86) | 3.67 (2.94) | 2.96 (2.45) | 1.1% | 12% | 0.78 |
+| cfg 3.0 | 7.63 (6.53-8.81) | 3.74 (3.28) | 2.93 (2.65) | 0.5% | 8% | 0.79 |
+| Trendyol-TTS | 6.48 (5.83-7.51) | 3.89 (3.56) | 3.04 (2.82) | 0.3% | 0% | 0.79 |
+
+  Lower guidance does not slow cloned speech and costs WER and quality, so cfg 3.0 stays.
+
+Fixes tried on the same 40 sentences (VoxCPM2 `generate` has no speed setting):
+
+| run 4, cfg 3.0 | syl/s | PESQ (p10) | UTMOS (p10) | WER | female-range | consistency |
+|---|---|---|---|---|---|---|
+| clone `ref_male.wav` (best so far) | 7.63 | 3.74 (3.28) | 2.93 (2.65) | 0.5% | 8% | 0.79 |
+| same, slowed with rubberband 0.87 | 6.67 | 1.79 (1.51) | 2.30 (1.89) | 0.8% | 8% | 0.79 |
+| same, slowed with atempo 0.87 | 6.66 | 3.72 (3.33) | 2.73 (2.50) | 1.0% | 8% | 0.80 |
+| same, slowed with atempo 0.92 | 7.00 | 3.70 (3.28) | 2.80 (2.41) | 0.8% | 8% | 0.80 |
+| continue from `ref_male.wav` (`--prompt-wav`) | 7.21 | 3.85 (3.41) | 2.73 (2.40) | 1.1% | 0% | 0.86 |
+| continue + clone | 7.18 | 3.82 (3.44) | 2.72 (2.44) | 0.6% | 0% | 0.86 |
+| continue, cfg 2.0 | 7.14 | 3.62 (3.30) | 2.80 (2.14) | 2.0% | 0% | 0.84 |
+
+- rubberband (ffmpeg defaults) wrecks the audio; atempo keeps clarity (PESQ) but UTMOS drops ~0.1-0.2, which may be
+  the slower pace itself or stretch artifacts: needs listening.
+- Continuing from the clip (`eval_tts.py --prompt-wav`, transcript from the clip's .txt) never drifts to a high voice
+  (0% female-range) and gives the steadiest voice (0.86, above Trendyol 0.79), is ~6% slower than cloning, but UTMOS
+  is lower (2.72).
+- Listening page: `data/listening_sample/stage1_speed_fixes.html` (8 sentences where ours is fastest, 5 versions).
