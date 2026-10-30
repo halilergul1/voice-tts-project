@@ -215,3 +215,48 @@ Comparison on the same sets (Freya100 = first 100 Freya sentences; corpus = orig
   less than in run 2.
 - Exit gate on the numbers: Freya WER 1.9% (gate 0.9%) not met; UTMOS p10 2.24 > untrained 1.93 met; voice consistency
   0.51 > 0.44 met. Listening page: `data/listening_sample/stage1_v3_listen.html`.
+
+### Run 3: thin, robotic voice in a few outputs (2026-10-30)
+
+Listening feedback: run 3 is clearly better than run 2, but a few outputs still have a very thin, robot-like voice.
+
+Which outputs: per-clip SQUIM PESQ, UTMOS and median F0 on Freya100 and the corpus set. The worst outputs are mostly
+female-range voices (median F0 > 165 Hz) produced under the male prompt: female-range UTMOS 2.44 vs male-range 3.04
+(Freya100), 2.46 vs 2.98 (corpus). The untrained model's gap is small (2.68 vs 2.82), run 2 has the same gap as run 3.
+
+Generation settings, run 3 end, first 40 Freya sentences (`scripts/eval_tts.py --ref-wav` added for cloning; refs are
+two Sidon-kept train clips with PESQ > 4.1, male 121 Hz `ET85vl6YRBE_01406`, female 285 Hz `Sj5vhnLGKHc_00195`):
+
+| setting | PESQ est. (p10) | UTMOS (p10) | WER | female-range | voice consistency |
+|---|---|---|---|---|---|
+| Trendyol-TTS | 3.89 (3.56) | 3.04 (2.82) | 0.3% | 0% | 0.79 |
+| step 1250, default | 3.53 (3.08) | 2.98 (2.31) | 1.8% | 28% | 0.51 |
+| end, default (male prompt, cfg 2.0, 16 steps) | 3.63 (3.06) | 2.99 (2.29) | 1.8% | 32% | 0.52 |
+| cfg 3.0 | 3.65 (3.02) | 3.05 (2.33) | 0.8% | 40% | 0.54 |
+| 32 steps | 3.61 (3.19) | 2.88 (2.42) | 1.9% | 30% | 0.52 |
+| 32 steps, cfg 3.0 | 3.51 (2.73) | 3.10 (2.39) | 1.0% | 30% | 0.55 |
+| clone male clip (no text prompt) | 3.51 (2.77) | 2.87 (2.43) | 2.9% | 12% | 0.71 |
+| clone male clip, cfg 3.0 | 3.51 (3.13) | 2.89 (2.34) | 1.7% | 12% | 0.76 |
+| clone female clip | 3.87 (3.42) | 2.78 (2.40) | 1.7% | 100% | 0.72 |
+
+- No setting closes the gap to Trendyol on the worst 10% (UTMOS p10 2.29 to at most 2.43 vs 2.82).
+- cfg 3.0 lowers WER (1.8% to 0.8%) but gives more female-range voices under the male prompt.
+- Cloning a clean clip pins the voice (consistency 0.52 to 0.76, female-range 32% to 12%), which removes the random
+  thin voices the text prompt sometimes picks; cloning the female clip reaches Trendyol's PESQ estimate.
+- Longer training: UTMOS is flat from step 1250 to the end (2.98 vs 2.99 here; 2.93 vs 2.83 on Freya100), so more
+  steps on the same data is unlikely to fix it.
+
+Training data of run 3 (65.4 h incl. FLEURS replay), SQUIM PESQ on 150 random clips per group:
+
+| group | hours | share | PESQ median (p10) |
+|---|---|---|---|
+| Sidon kept, female speakers | 20.7 | 32% | 3.50 (2.96) |
+| Sidon kept, male speakers | 12.7 | 19% | 3.39 (2.49) |
+| Sidon kept, gender unknown | 14.4 | 22% | – |
+| fallback (music removed only: faded ending or changed words) | 11.3 | 17% | 1.9 to 2.2 (1.2 to 1.4) |
+| FLEURS replay (read speech, not restored) | 6.3 | 10% | 2.49 (1.25) |
+
+- 27% of the training audio is the low-quality kind (fallbacks with separator echo, FLEURS with home-mic recordings),
+  the likely source of the thin, robotic voices left in run 3. Female Sidon clips are not worse than male ones.
+- 86.4 h of Sidon-kept clips exist in dataset + dataset_long, so a 60 h build can drop every fallback clip.
+- Listening page: `data/listening_sample/stage1_v3_settings.html`.

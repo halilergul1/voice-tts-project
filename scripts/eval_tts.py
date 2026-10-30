@@ -4,6 +4,7 @@
   eval_tts.py synth --system voxcpm2 --run s0_voxcpm2 --sentences data/eval/freya_tr_eval.txt [--limit 20]
   eval_tts.py synth --system voxcpm2-lora --lora ~/tts/checkpoints/stage1/step_0001000 --run s1_step1000 ...
   eval_tts.py synth --system trendyol --run s0_trendyol ...
+  eval_tts.py synth --system voxcpm2-lora ... --ref-wav clip.wav --prompt ''   # clone the voice of clip.wav
   eval_tts.py score --run s0_voxcpm2 --sentences data/eval/freya_tr_eval.txt [--utmos 0] [--spk 0]
   eval_tts.py all   ... (synth then score, same flags)
 
@@ -149,6 +150,8 @@ def cmd_synth(a) -> None:
             for key, val in (("normalize", a.normalize), ("denoise", False)):
                 if key in gen_sig or takes_kwargs:
                     kw[key] = val
+            if a.ref_wav:
+                kw["reference_wav_path"] = a.ref_wav  # VoxCPM2 cloning: the voice of this clip, no transcript needed
             import torch
 
             torch.manual_seed(a.seed + k)
@@ -163,8 +166,8 @@ def cmd_synth(a) -> None:
             write_synth()
             print(f"[{k + 1}/{len(sentences)}] {row['audio_sec']} s audio in {row['gen_sec']} s (rtf {row['rtf']})")
     (run_dir / "run.json").write_text(json.dumps({"system": a.system, "lora": a.lora, "model_dir": a.model_dir,
-                                                  "prompt": prompt, "cfg": a.cfg, "steps": a.steps, "seed": a.seed,
-                                                  "device": device, "sample_rate": sr, "sentences": a.sentences,
+                                                  "prompt": prompt, "ref_wav": a.ref_wav, "cfg": a.cfg, "steps": a.steps,
+                                                  "seed": a.seed, "device": device, "sample_rate": sr, "sentences": a.sentences,
                                                   "n": len(sentences), "date": date.today().isoformat()},
                                                  ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -271,6 +274,7 @@ def main() -> int:
             s.add_argument("--lora", default=None)
             s.add_argument("--model-dir", default=None, help="local model folder instead of the HF id")
             s.add_argument("--prompt", default=None, help="voice-design prefix; '' disables; default: Turkish male prompt")
+            s.add_argument("--ref-wav", default=None, help="reference clip whose voice VoxCPM2 clones (reference_wav_path)")
             s.add_argument("--cfg", type=float, default=2.0)
             s.add_argument("--steps", type=int, default=16)
             s.add_argument("--seed", type=int, default=42)
