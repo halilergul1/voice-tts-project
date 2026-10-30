@@ -306,3 +306,22 @@ First 40 Freya sentences, end checkpoints:
 - Run 4 + cloning a clean male clip with cfg 3.0 is the best setting so far: WER 0.5%, voice consistency 0.79 and
   female-range 8% (Trendyol 0.3% / 0.79 / 0%), worst-10% PESQ 3.28 and UTMOS 2.65 (run 3 same setting 3.13 / 2.34).
 - Listening page: `data/listening_sample/stage1_v4_listen.html`.
+
+### Run 4 best setting on the full scored sets (2026-10-30)
+
+Run 4 end + clone `ref_male.wav` (train clip `ET85vl6YRBE_01406`, 121 Hz) + cfg 3.0, no text prompt
+(`scripts/score_stage1.sh` now takes `REF_WAV` and `CFG`):
+
+| system | Freya100 WER | Freya100 UTMOS (p10) | corpus WER | corpus UTMOS (p10) | voice consistency (Freya / corpus) |
+|---|---|---|---|---|---|
+| Trendyol-TTS | 0.004 | 2.99 | 0.025 | 2.99 (2.55) | 0.76 / 0.78 |
+| VoxCPM2 untrained | 0.012 | 2.67 (1.93 on 495) | 0.028 | 2.62 (1.86) | 0.44 / 0.44 |
+| run 4, male prompt | 0.017 | 2.88 (2.33) | 0.038 | 2.75 (2.12) | 0.53 / 0.49 |
+| run 4 best (clone + cfg 3.0) | 0.013 | 2.86 (2.46) | 0.045 | 2.87 (2.34) | 0.78 / 0.75 |
+
+- Female-range outputs: 9% (Freya), 14% (corpus), against 32% / 46% with the male prompt.
+- Corpus WER: most counted errors are spelling variants Trendyol also gets ("valla", "arabada", "rusçarı");
+  real slips include a dropped first word in 3 sentences ("Şey,", "Ay", "Garsona") and "harlayayım" heard as "ağırlayayım".
+- Exit gate: UTMOS p10 2.46 > 1.93 met; voice consistency 0.78 > 0.44 met; Freya WER 1.3% vs Trendyol 0.4%
+  (gate within 0.5 points) not met; listener preference (>= 12 of 20) pending: blind page
+  `data/listening_sample/stage1_ab_blind.html` (12 Freya k 40-51 + 8 corpus lines, sides shuffled, seed 20261030).
