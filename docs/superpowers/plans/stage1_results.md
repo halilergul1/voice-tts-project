@@ -343,11 +343,11 @@ server `data/speech_rate.py`):
 | Trendyol-TTS, corpus 50 | 5.89 |
 | run 4 best, corpus 50 | 7.10 |
 | run 4 training clips (400 sample) | 5.56 (3.83-7.34) |
-| `ref_male.wav` (the cloned clip) | 5.59 |
+| `ref_male.wav` (the cloned clip) | 5.30 |
 
 - The best setting speaks ~17% faster than Trendyol (Freya) and ~20% faster on TV lines; on the 20 blind items the
   median ratio ours/Trendyol is x1.19 and 13 of 20 are more than 10% faster.
-- Not inherited: the cloned clip (5.59) and the training clips (5.56) are slower than Trendyol.
+- Not inherited: the cloned clip (5.30) and the training clips (5.56) are slower than Trendyol.
 - Two causes, same 40 Freya sentences: with the text prompt, guidance speeds speech (run 4 cfg 2.0 6.64 -> cfg 3.0
   7.43; run 3 16 steps 7.03 -> 7.73, 32 steps 7.31 -> 7.48); with cloning, speech is fast at any guidance:
 
@@ -402,3 +402,53 @@ its first 100, not the 495 in `summary.md`.)
   round 1; seed 20261031).
 - On TV lines it now beats Trendyol on WER, matches its clarity (PESQ 3.83), never drifts to a high voice, and keeps one
   voice better than Trendyol; UTMOS stays ~0.25 lower and speech is still ~12% faster.
+
+### Husky voice and robotic bits: the cloned clip (2026-10-31)
+
+Listener on round 2: speed now fine and ours sounds natural, but Trendyol is cleaner; ours is a bit hoarse/husky and a
+tiny robotic sound appears in some words. No preference count given.
+
+Hoarseness measured with Praat (parselmouth, server `data/hoarse.py`; all audio at 16 kHz): CPPS (cepstral peak
+prominence, dB; lower = breathier/hoarser, the standard clinical measure) and HNR (harmonics-to-noise, dB; less telling
+here). Medians, first 40 Freya sentences:
+
+| audio | CPPS | HNR |
+|---|---|---|
+| Trendyol-TTS | 10.18 | 11.37 |
+| VoxCPM2 untrained, Turkish male prompt | 9.99 | 13.92 |
+| run 4, male prompt | 9.18 | 12.37 |
+| run 4, clone `ref_male.wav` | 8.73 | 12.60 |
+| run 4, continue clip `ref_male.wav` | 8.26 | 11.53 |
+| VoxCPM2 untrained, continue clip `ref_male.wav` | 8.34 | 12.41 |
+| `ref_male.wav` itself | 7.43 | 12.93 |
+| run 4 train clips, Sidon (150) | 8.65 | 13.43 |
+| same clips, music removed only | 7.59 | 9.19 |
+| same clips, original TV audio | 6.40 | 7.21 |
+| FLEURS Sidon / original (100) | 8.79 / 6.93 | 16.75 / 12.89 |
+
+- The husky sound is the cloned clip: `ref_male.wav` is the hoarsest audio measured (CPPS 7.43), and the untrained model
+  continuing from it is as husky as run 4 (8.34 vs 8.26).
+- Training lowers clearness a little (untrained 9.99 -> run 4 9.18 with the text prompt; the TV training audio is 8.65
+  even after Sidon, which already lifts it from 6.40). Across run 4 checkpoints CPPS is flat (8.7-9.9, steps 250-2629),
+  so longer training does not make the voice cleaner.
+- The corpus has ~47 h of unique Sidon-restored speech (singles 47.12 h; merged clips reuse the same audio) and run 4
+  uses all of it, so the plan's retry (`--max-hours 150`) cannot add data; it would only enlarge the adapter.
+
+Clearer male clips (Sidon-kept train clips, 250 random male candidates ranked by CPPS, PESQ >= 3.9; FLEURS male-range
+clips by CPPS), then continue + clone, cfg 3.0, run 4 end, 40 Freya sentences:
+
+| setting | CPPS | PESQ (p10) | UTMOS (p10) | WER | female-range | consistency | syl/s |
+|---|---|---|---|---|---|---|---|
+| Trendyol-TTS | 10.18 | 3.89 (3.56) | 3.04 (2.82) | 0.3% | 0% | 0.79 | 6.48 |
+| current clip `ref_male.wav` (CPPS 7.43) | 8.26 | 3.82 (3.44) | 2.70 (2.25) | 0.6% | 0% | 0.86 | 7.18 |
+| current clip, 32 steps | 8.34 | 3.85 (3.56) | 2.63 (2.33) | 0.9% | 0% | 0.87 | 7.13 |
+| clip A `esrefruya_ep002_00529` (CPPS 10.92, 107 Hz) | 9.91 | 3.74 (3.47) | 3.13 (2.58) | 1.1% | 0% | 0.88 | 7.11 |
+| clip B `MSMZa-16Rvg_00230` (CPPS 10.26, 138 Hz) | 10.59 | 4.14 (3.90) | 3.06 (2.83) | 0.2% | 2% | 0.84 | 7.05 |
+| FLEURS `4637681251201607381` (CPPS 10.58, 108 Hz) | 10.45 | 4.25 (4.06) | 1.94 (0.85) | 2.1% | 65% | 0.88 | 6.86 |
+
+- Clip B matches or beats Trendyol on every measure but speed: clearness 10.59 vs 10.18, PESQ 4.14 vs 3.89, UTMOS 3.06
+  vs 3.04 (p10 2.83 vs 2.82), WER 0.2% vs 0.3%, consistency 0.84 vs 0.79.
+- 32 steps changes nothing measurable; the robotic bits are not from too few generation steps.
+- The FLEURS clip drifts to a high voice (65%) with very low UTMOS: read-speech clips are no good as the clip.
+- Clips copied to `data/eval/refs/ref_male_{a,b,fleurs}.wav` (+ .txt). Listening page:
+  `data/listening_sample/stage1_clear_voice.html`.
