@@ -99,7 +99,9 @@ for r in dataset_events dataset_long dataset; do
     stage "audit_$r"   audit "data/$r"
 done
 
-SIDON="--wavs wavs_sidon --long-wavs wavs_sidon --events-wavs wavs_sidon --max-hours $MAX_HOURS"
+# Event clips keep wavs_clean: Sidon removes the laughs, breaths and cries they exist for (of 2,708 event clips 921
+# endings and 279 word checks fell back; the rest could lose a sound at the start unnoticed).
+SIDON="--wavs wavs_sidon --long-wavs wavs_sidon --events-wavs wavs_clean --max-hours $MAX_HOURS"
 stage keep_previous keep_previous
 stage manifest1 "$PY" scripts/make_voxcpm_manifest.py --stage 1 --out data/voxcpm $SIDON $MANIFEST_EXTRA
 stage manifest2 "$PY" scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 $SIDON $MANIFEST_EXTRA \
