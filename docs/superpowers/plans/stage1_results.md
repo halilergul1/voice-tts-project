@@ -495,3 +495,16 @@ Robotic-bit probes, clip B, 40 Freya sentences (no metric measures the robotic b
   The 3 seeds won evenly (13 / 13 / 14), so take-to-take variation is real.
 - The untrained model with clip B is as clean as run 4 by the metrics and speaks at Trendyol's pace (6.41), but has
   more word errors (1.1%); step 1250 is level with the end checkpoint.
+
+### Round 3 blind result and robotic-bit listening (2026-10-31)
+
+- Blind round 3 (Trendyol vs clip B, 20 new sentences): ours preferred 6, Trendyol 4, same 10. First round ours wins
+  head-to-head (round 1: 4 vs 6), but the gate (ours >= 12 of 20) is not met.
+- Robotic-probe page, versions the listener liked per sentence (8 sentences): untrained VoxCPM2 in 8 of 8, step 1250 in
+  4, clip B end checkpoint in 2, best of 3 in 1, Sidon post-filter in 0. Listener: "the untrained ones are clearly better".
+- So the robotic bits come from the stage 1 training, and grow with it (step 1250 < end). Clip B itself is not the
+  cause (the untrained model uses the same clip). Likely source: the training audio is Sidon output, a resynthesis from
+  w2v-BERT features, and the adapter learns its vocoder character; the metrics do not catch it.
+- What training adds: fewer word errors (Freya 0.5% vs untrained 1.1% with clip B). The adapter sits on both the
+  language model and the acoustic decoder (DiT), `r 64 / alpha 64` (scaling 1.0), so the plan's retry setting
+  (`r 64, alpha 128`) would only double the adapter's strength.
