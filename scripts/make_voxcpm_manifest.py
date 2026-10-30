@@ -15,6 +15,7 @@ set scripts/eval_tts.py scores, is only written when missing, so runs stay compa
 
 usage: .venv/bin/python scripts/make_voxcpm_manifest.py --root data/dataset --out data/voxcpm --wavs wavs_clean \
           [--max-hours 60] [--ref-ratio 0.4] [--replay-dir data/fleurs_tr --replay-share 0.15] [--fetch-fleurs]
+          [--restored-only]  (only clips Sidon restored; run 4 also uses --replay-dir data/fleurs_tr_sidon)
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ import soundfile as sf
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.labels import EVENT_TAG, STYLE_PREFIX, allowed_labels, auto_styles, labelled_text, oversample  # noqa: E402
 from ttsdata.manifest import (cap_hours, combine_events, combine_units, labels_first, manifest_row,  # noqa: E402
-                              pair_references, replay_text, restore_bases,
+                              pair_references, replay_text, restore_bases, restored_only,
                               stage_filter, tier_funnel, validate_row)
 from ttsdata.voicegender import DESCRIPTIONS, describe  # noqa: E402
 
@@ -86,6 +87,9 @@ def main() -> int:
     ap.add_argument("--wavs", default="wavs_clean")
     ap.add_argument("--long-root", default="data/dataset_long", help="merged clips (ttsdata merge-clips); '' to skip")
     ap.add_argument("--long-wavs", default="wavs_clean")
+    ap.add_argument("--restored-only", action="store_true",
+                    help="keep only clips Sidon restored (restoration.jsonl source 'sidon') in --root and --long-root; "
+                         "fallbacks (music removed only) are dropped, a dropped merged clip gives its members back")
     ap.add_argument("--stage", type=int, default=1, choices=(1, 2), help="1 plain prosody; 2 labels + event clips")
     ap.add_argument("--max-music-db", type=float, default=-10.0,
                     help="music gate for clips kept as the original (-40 after separating everything: truly clean only)")
@@ -152,6 +156,19 @@ def main() -> int:
         merged = with_wavs(load_jsonl(long_root / "metadata.jsonl"), long_root / a.long_wavs, "merged clips")
     else:
         print("[warn] no merged clips (run ttsdata merge-clips, or pass --long-root)")
+    restore_note = ""
+    if a.restored_only:
+        before = [(len(rs), sum(r["duration"] for r in rs) / 3600) for rs in (singles, merged)]
+        singles = restored_only(singles, {r["id"]: r for r in load_jsonl(root / "restoration.jsonl")})
+        if long_root:
+            merged = restored_only(merged, {r["id"]: r for r in load_jsonl(long_root / "restoration.jsonl")})
+        if not singles:
+            raise SystemExit(f"--restored-only: no restored clips in {root / 'restoration.jsonl'}")
+        after = [(len(rs), sum(r["duration"] for r in rs) / 3600) for rs in (singles, merged)]
+        restore_note = (f"restored only (Sidon): single clips {after[0][0]} of {before[0][0]} ({after[0][1]:.2f} of "
+                        f"{before[0][1]:.2f} h), merged clips {after[1][0]} of {before[1][0]} ({after[1][1]:.2f} of "
+                        f"{before[1][1]:.2f} h)")
+        print(restore_note)
     soundtags = None
     tag_files = [p / "soundtags.jsonl" for p in ([root] + ([long_root] if long_root else [])) if (p / "soundtags.jsonl").exists()]
     if tag_files:
@@ -327,6 +344,7 @@ def main() -> int:
              f"single clips: {len(singles)} ({hrs(singles):.2f} h); merged clips: {len(merged)} ({hrs(merged):.2f} h), "
              f"of which {sum(1 for r in rows if r['root'] == 'dataset_long')} pass the tier and replace {covered} single clips",
              f"sound flags: {'applied (' + str(len(soundtags)) + ' tagged clips)' if soundtags is not None else 'not available'}",
+             *([restore_note] if restore_note else []),
              "", f"units entering the funnel: {len(rows)} ({hrs(rows):.2f} h)", "",
              "| gate | clips | hours |", "|---|---|---|"]
     lines += [f"| {name} | {len(rs)} | {hrs(rs):.2f} |" for name, rs in funnel]

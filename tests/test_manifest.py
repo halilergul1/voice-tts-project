@@ -1,6 +1,6 @@
 import pytest
-from ttsdata.manifest import (EXCLUDE_FLAGS, combine_units, manifest_row, pair_references, replay_text, select_tier,
-                              validate_row)
+from ttsdata.manifest import (EXCLUDE_FLAGS, combine_units, manifest_row, pair_references, replay_text, restored_only,
+                              select_tier, validate_row)
 
 
 def R(i, dur=4.0, cer=0.0, spk="s_spk00", size=20, hint=None, text="Merhaba."):
@@ -192,3 +192,20 @@ def test_labels_first_takes_the_rarest_label_first_within_quota_and_budget():
     # a row carrying two labels counts toward both quotas
     both = [{"id": "x", "series": "A", "duration": 60, "labs": ["cry", "laugh"]}]
     assert len(labels_first(both, lambda r: r["labs"], max_hours=1, per_label=1, seed=0)) == 1
+
+
+def test_restored_only_keeps_sidon_clips():
+    rows = [R(0), R(1), R(2), R(3)]
+    rest = {"c0": {"source": "sidon"}, "c1": {"source": "fallback"}, "c2": {"source": "fallback_words"}}
+    assert [r["id"] for r in restored_only(rows, rest)] == ["c0"]  # fallbacks and clips never restored are dropped
+    assert restored_only(rows, {}) == []
+
+
+def test_restored_only_merged_fallback_gives_members_back():
+    # a merged clip that fell back is dropped before combine_units, so its restored members stay as single clips
+    singles = [R(0), R(1)]
+    merged = [{**R(9, dur=8.0), "id": "c9_x2", "members": ["c0", "c1"]}]
+    rest = {"c0": {"source": "sidon"}, "c1": {"source": "sidon"}, "c9_x2": {"source": "fallback"}}
+    q = {"c0": Q(0), "c1": Q(1), "c9_x2": {**Q(9), "id": "c9_x2"}}
+    units = combine_units(restored_only(singles, rest), restored_only(merged, rest), q)
+    assert sorted(r["id"] for r in units) == ["c0", "c1"]

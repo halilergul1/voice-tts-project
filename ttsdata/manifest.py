@@ -64,6 +64,12 @@ def select_tier(rows: list[dict], quality: dict[str, dict], **kw) -> list[dict]:
     return funnel[-1][1] if funnel else []
 
 
+def restored_only(rows: list[dict], restoration: dict[str, dict]) -> list[dict]:
+    """Rows whose audio Sidon restored (restoration.jsonl source "sidon"). Fallbacks (music removed only, echo and
+    separator artifacts left) and clips never restored are dropped."""
+    return [r for r in rows if (restoration.get(r["id"]) or {}).get("source") == "sidon"]
+
+
 def combine_units(singles: list[dict], merged: list[dict], quality: dict[str, dict], **tier_kw) -> list[dict]:
     """Training units: merged clips that pass the tier replace their members; every other single clip stays.
 
