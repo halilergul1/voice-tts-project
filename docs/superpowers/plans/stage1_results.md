@@ -8,7 +8,9 @@ prompt. Lessons for stage 2:
 - Train clean clips only (run 4); the cloned clip sets voice quality (a husky clip gives a husky voice).
 - The DiT (acoustic decoder) half of the LoRA adds robotic bits on some words, likely learnt from the Sidon-restored
   training audio; the language-model half carries the word and prosody gain. Consider `enable_dit: false`.
-- Longer training does not help clearness; the clean Sidon set is ~47 h unique audio.
+- Longer training on the same data does not help clearness. Only ~47 h of unique audio has been Sidon-restored so
+  far: separation and Sidon ran only on the clips of the 60 h slices, while the strict tier holds 348 h. More
+  restored hours are possible by cleaning more of the strict tier.
 
 Run: `scripts/train_stage1.sh` with `training/voxcpm/stage1_prosody_lora.yaml` (LoRA r64/a64 on LM + DiT, lr 1e-4,
 batch 4 × grad accum 4, 2626 steps = 1 epoch of the 60 h clean-wav slice; 23:50 → 00:19, ~0.67 s/step, peak ~28 GB).
