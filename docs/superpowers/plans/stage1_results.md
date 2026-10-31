@@ -533,3 +533,41 @@ Clip B, continue + clone, cfg 3.0, run 4 end, 40 Freya sentences (~400 words, so
   trained version by CPPS (11.00), but its worst-10% UTMOS is lowest (2.64) and high-voice drift is 10%.
 - Robotic bits are not measured; listening page `data/listening_sample/stage1_adapter_split.html` (same 8 sentences
   as the robotic-probe page, 5 versions).
+
+Listening (2026-10-31): the listener marked the versions with no robotic bits for 7 of the 8 sentences.
+
+| version | marked good |
+|---|---|
+| untrained | 7 / 7 |
+| language only (1,0) | 6 / 7 (not "Sabah karşılaştığımızda..."; on "Yarınki piknik..." untrained was better) |
+| full (1,1) | 3 / 7 |
+| acoustic only (0,1) | 1 / 7 |
+| half (0.5,0.5) | 0 / 7 |
+
+The robotic bits come from the acoustic-decoder (DiT) part of the adapter: with it off, the output sounds as clean as
+the untrained model and keeps most of the word-error gain. Language only becomes the candidate setting
+(`--lora-scale 1,0`); scored on the full sets below.
+
+### Language-only adapter on the full sets (2026-10-31)
+
+`--lora-scale 1,0`, clip B, continue + clone, cfg 3.0, run 4 end (rows `s1v4_lm_freya100` / `s1v4_lm_corpus`):
+
+| run | PESQ (p10) | UTMOS (p10) | WER | female-range | consistency | CPPS | syl/s |
+|---|---|---|---|---|---|---|---|
+| Trendyol, Freya100 | 3.85 (3.60) | 3.01 (2.67) | 0.4% | 0% | 0.79 | 10.20 | 6.38 |
+| zero-shot, Freya100 | 3.41 (2.42) | 2.83 (2.04) | 1.2% | 55% | 0.46 | 9.72 | 6.25 |
+| full adapter, Freya100 | 4.19 (3.93) | 3.08 (2.74) | 0.5% | 6% | 0.83 | 10.49 | 6.97 |
+| language only, Freya100 | 4.22 (3.99) | 3.08 (2.75) | 1.1% | 3% | 0.83 | 10.70 | 7.30 |
+| Trendyol, corpus | 3.83 (3.60) | 3.04 (2.55) | 2.5% | 0% | 0.78 | 9.72 | 5.89 |
+| zero-shot, corpus | 3.38 (1.88) | 2.63 (1.86) | 2.8% | 54% | 0.44 | 8.99 | 5.94 |
+| full adapter, corpus | 4.16 (3.89) | 3.06 (2.68) | 2.8% | 12% | 0.80 | 10.48 | 6.56 |
+| language only, corpus | 4.18 (4.00) | 3.07 (2.74) | 2.6% | 4% | 0.80 | 10.51 | 6.90 |
+
+- Gates: UTMOS p10 and consistency beat zero-shot; Freya WER 1.1% vs Trendyol 0.4% is 0.7 pt, so the WER gate
+  (within 0.5 pt) is missed. Errors are 7 of 100 sentences vs Trendyol 4. Three are ASR spelling, not speech:
+  "lapalapa", "kelime ile" (full adapter too), "üç otuza" (all three systems). The rest are slurred words
+  ("huçlara", "koyudu", "teysatçı") and one cut ending ("hatırlıyo").
+- Language only is the cleanest on every quality number, with the least high-voice drift (3-4%). It is the fastest
+  version, though: 7.30 syl/s vs Trendyol 6.38 (+14%), full adapter 6.97.
+- Blind round 4 (Trendyol vs language only; Freya 76-87 and corpus 3, 8, ..., 38, unused in rounds 1-3):
+  `data/listening_sample/stage1_ab_blind4.html`.
