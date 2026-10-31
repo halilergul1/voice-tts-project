@@ -32,6 +32,16 @@ def lora_part(module_name: str) -> str:
     return "other"
 
 
+def check_scale_parts(counts: dict[str, int], lm: float, dit: float) -> None:
+    """Raise ValueError when --lora-scale cannot do what it says: no LoRA layers loaded at all, or a part with no
+    layers asked for a strength other than 0 or 1 (an LM-only adapter takes "0.5,0" or "0.5,1", not "0.5,0.5")."""
+    if not counts.get("lm") and not counts.get("dit"):
+        raise ValueError(f"no LoRA layers found: {counts}")
+    for part, scale in (("lm", lm), ("dit", dit)):
+        if not counts.get(part) and scale not in (0.0, 1.0):
+            raise ValueError(f"--lora-scale {part}={scale}, but the adapter has no {part} layers: {counts}")
+
+
 def parse_lora_scale(spec: str) -> tuple[float, float]:
     """--lora-scale "LM,DIT" (e.g. "1,0": language-model part as trained, acoustic part off) or one value for both."""
     parts = [float(x) for x in spec.split(",")]

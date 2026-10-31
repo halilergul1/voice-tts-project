@@ -27,7 +27,8 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.evalmetrics import lora_config_from_checkpoint, lora_part, parse_lora_scale, summarize  # noqa: E402
+from ttsdata.evalmetrics import (check_scale_parts, lora_config_from_checkpoint, lora_part, parse_lora_scale,  # noqa: E402
+                                 summarize)
 
 EVAL_DIR = Path("data/eval")
 DEFAULT_PROMPT = "(Otuzlu yaşlarında bir erkek, sakin ve doğal bir ses)"
@@ -149,8 +150,10 @@ def cmd_synth(a) -> None:
             raise SystemExit("--lora-scale needs --system voxcpm2-lora")
         n = _scale_lora(model.tts_model, *lora_scale)
         print(f"LoRA scale lm {lora_scale[0]} ({n['lm']} layers), dit {lora_scale[1]} ({n['dit']} layers), other {n['other']}")
-        if not n["lm"] or not n["dit"]:
-            raise SystemExit(f"LoRA layers not found per part: {n}")
+        try:
+            check_scale_parts(n, *lora_scale)  # an LM-only adapter has no DiT layers; scaling them to 0 or 1 is a no-op
+        except ValueError as e:
+            raise SystemExit(f"LoRA layers not found per part: {n} ({e})")
     sr = model.tts_model.sample_rate
     inner = getattr(model, "_generate", model.generate)  # generate() is a *args/**kwargs wrapper around _generate()
     gen_sig = inspect.signature(inner).parameters
@@ -223,6 +226,7 @@ def cmd_score(a) -> None:
     import jiwer
 
     from ttsdata.config import Config
+    from ttsdata.stylemetrics import read_aloud, scoring_texts
     from ttsdata.textnorm import for_cer
 
     run_dir = EVAL_DIR / a.run
@@ -237,6 +241,8 @@ def cmd_score(a) -> None:
     run_meta = json.loads((run_dir / "run.json").read_text(encoding="utf-8")) if (run_dir / "run.json").exists() else {}
     if run_meta.get("sentences") and Path(run_meta["sentences"]).name != Path(a.sentences).name:
         print(f"[warn] run was synthesised from {run_meta['sentences']}, scoring against {a.sentences}")
+    # words of a text prompt ("(An angry voice)") that would show up in the transcript if the model spoke them
+    prompt_words = tuple(w for w in for_cer(run_meta.get("prompt") or "").split() if len(w) >= 4)
     n_use = min(len(sentences), a.limit) if a.limit else len(sentences)
     wavs = [p for p in sorted(wav_dir.glob("*.wav")) if p.stem.isdigit() and int(p.stem) < n_use]
     if not wavs:
@@ -247,9 +253,11 @@ def cmd_score(a) -> None:
     scores = []
     for p in wavs:
         k = int(p.stem)
-        ref, hyp = for_cer(sentences[k]), for_cer(transcribe(p))
-        scores.append({"k": k, "text": sentences[k], "asr": hyp,
+        asr = transcribe(p)
+        ref, hyp = scoring_texts(sentences[k], asr)  # labels stripped; laughter ignored where a tag asked for it
+        scores.append({"k": k, "text": sentences[k], "asr": for_cer(asr),
                        "wer": jiwer.wer(ref, hyp) if hyp else 1.0, "cer": jiwer.cer(ref, hyp) if hyp else 1.0,
+                       "read_aloud": read_aloud(asr, sentences[k], extra_words=prompt_words),
                        "utmos": None, "spk_cos": None, "rtf": synth.get(k, {}).get("rtf")})
     by_k = {s["k"]: s for s in scores}
     if a.utmos:

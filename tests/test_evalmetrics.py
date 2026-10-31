@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from ttsdata.evalmetrics import lora_config_from_checkpoint, lora_part, parse_lora_scale, summarize
+from ttsdata.evalmetrics import check_scale_parts, lora_config_from_checkpoint, lora_part, parse_lora_scale, summarize
 
 
 def test_summarize_aggregates_scores():
@@ -54,3 +54,12 @@ def test_parse_lora_scale():
     assert parse_lora_scale("0.5") == (0.5, 0.5)
     with pytest.raises(ValueError):
         parse_lora_scale("1,0,1")
+
+
+def test_check_scale_parts_lm_only_adapter():
+    check_scale_parts({"lm": 144, "dit": 0}, 0.5, 0.0)
+    check_scale_parts({"lm": 144, "dit": 0}, 0.5, 1.0)  # scale 1 on a missing part changes nothing
+    with pytest.raises(ValueError):
+        check_scale_parts({"lm": 0, "dit": 48}, 0.5, 0.0)
+    with pytest.raises(ValueError):  # no LoRA layers at all: the adapter did not load
+        check_scale_parts({"lm": 0, "dit": 0}, 1.0, 1.0)
