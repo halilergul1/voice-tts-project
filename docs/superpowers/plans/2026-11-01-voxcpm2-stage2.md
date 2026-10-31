@@ -1,0 +1,467 @@
+# VoxCPM2 Turkish LoRA, Stage 2 (styles and sound tags) Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Teach the untrained VoxCPM2 three speaking styles (happy / sad / angry) and three sound tags (`[gülme]`, `[nefes]`, `[ağlama]`) with a language-model-only LoRA, without making plain sentences sound any worse than the stage 1 system.
+
+**Architecture:** First measure what the base model already does with style words and tags (no training). Then train a fresh LM-only LoRA on a manifest that holds only labelled TV clips plus "anchor" rows: plain sentences spoken by the base model itself with the stage 1 setting, so the adapter has nothing to learn on plain text and stays near the base sound. Every checkpoint is scored for style, tags and plain-sentence quality; a run passes only when a blind round on plain sentences against the untrained model shows it no worse.
+
+**Tech Stack:** Python 3.12, `voxcpm` (`openbmb/VoxCPM2`, in `~/tts/venv-voxcpm` on astrobot), emotion2vec+ large via FunASR (`iic/emotion2vec_plus_large`, `ttsdata.emotion.E2V`), faster-whisper large-v3-turbo, UTMOSv2, ECAPA (`ttsdata.speakers`), pytest.
+
+**Spec:** `reports/Turkish expressive TTS model options.md` ("Manufacturing emotion, gender and non-verbal labels", "Training stages" row 2, "Evaluation protocol" rows Emotion and Non-verbals), overridden where stage 1 taught otherwise: `docs/superpowers/plans/stage1_results.md` (closing summary, rounds 4–6), label calibration in `calibration/emotion_ratings_2026-10-27.csv` and `docs/superpowers/plans/2026-10-26-labels-into-manifest.md` (vocabulary, `--min-tag`, label-first slicing).
+
+## Read this first (human overview)
+
+Stage 1 closed with **no adapter**: untrained VoxCPM2 continuing from and cloning `data/eval/refs/ref_male_b.wav` ("clip B"), cfg 3.0, empty text prompt, beat Trendyol-TTS 18/0/2. Every LoRA trained on our Sidon-restored TV audio pulled the voice towards that audio; the DiT half added robotic bits. So stage 2 trains only what the base cannot do, and protects everything else.
+
+Decisions the user made on 2026-11-01:
+1. **Probe the base model first** (Task 4). A style the base already does with some prompt and clip leaves the training set; the LoRA learns only what is missing.
+2. **Plain rows come from the base model's own outputs** ("anchor rows", Task 5), not from TV clips. On those rows the base model is already right, so the adapter gets no push away from its sound.
+3. **Labels in scope:** happy / sad / angry, `[gülme]`, `[nefes]`, `[ağlama]`. `[ağlama]` has only ~170 clips (below the spec's 300); it is trained and judged by ear, and may fail its gate without failing the stage.
+4. **Regression gate:** a blind round of 20 plain sentences against untrained + clip B; the run fails if the listener prefers the untrained model more often than the adapter (ties are fine).
+
+Order of operations:
+1. **Scoring code** (Task 1, Mac): label-aware WER, style hit rate with emotion2vec+, laugh detection from Whisper, `--lora-scale` for LM-only adapters.
+2. **Blind page builder** (Task 2, Mac): the A/B page and a new "which style is this?" page, as repo code.
+3. **Manifest options** (Task 3, Mac): labelled rows only, neutral references for labelled rows, anchor rows from a folder.
+4. **Base probe** (Task 4, GPU ~1 h): styles and tags with the untrained model in four prompt / clip setups. Decision: which labels the LoRA trains, and which inference setup styled sentences use.
+5. **Data** (Task 5, GPU): check Sidon keeps the styles; synthesise the anchor set; rebuild `data/voxcpm_stage2`.
+6. **Train and score** (Task 6, GPU): run 2a, LM-only, fresh from base; score checkpoints; sweep `--lora-scale`.
+7. **Gates** (Task 7): style page, tag page, plain-sentence regression round; results in `docs/superpowers/plans/stage2_results.md`.
+
+Tasks 1–3 are code with unit tests on the Mac. Tasks 4–7 run on astrobot and **each GPU run needs the user's go-ahead first.**
+
+## Global Constraints
+
+- Server: `ssh ibrahim@astrobot.local`; unreachable while Cisco VPN or Cloudflare WARP is on (ask the user to switch it off). Project dir `~/voice-data`; code goes there with `scp` (or `rsync` without `--delete`) from this repo. TTS venv `~/tts/venv-voxcpm`; do not install into `~/voice-data/.venv`.
+- Before any GPU job: `tmux ls` and `nvidia-smi` on astrobot. `run5b` (`scripts/server_more_clean.sh`: cleaning, then a stage 1 run 5b LoRA) may still be running; ask the user whether to wait or stop its training part. Never stop a cleaning step.
+- Ask the user before every GPU run (probe, anchor synthesis, training, scoring). Long jobs run detached (tmux or `Popen(start_new_session=True)`) with a done marker in `data/logs/`.
+- Stage 1 inference setting ("S1"): `eval_tts.py synth --system voxcpm2 --model-dir ~/tts/models/VoxCPM2 --prompt '' --prompt-wav data/eval/refs/ref_male_b.wav --ref-wav data/eval/refs/ref_male_b.wav --cfg 3.0` (16 steps, seed 42). It is the baseline for every comparison.
+- LoRA: `enable_lm: true`, `enable_dit: false`, `enable_proj: false`, trained **fresh from `~/tts/models/VoxCPM2`** (no stage 1 adapter). `training_cfg_rate` left at default. Inference LoRA settings must match training (`eval_tts.py` reads `lora_config.json`).
+- Label text, exactly as `ttsdata/labels.py`: styles `(neşeyle)`, `(üzgün bir sesle)`, `(öfkeyle)` as a prefix; tags `[gülme]`, `[nefes]`, `[ağlama]` inline at the edge where the sound is. No other spellings in training text. Other tags (`[iç çekme]` 73 clips, `[öksürük]` 114) stay metadata.
+- Emotion labels: emotion2vec+ at the calibrated cuts `angry=0.70,sad=0.85,happy=0.99` (`--auto-styles --auto-conf ...`). Event clips: evidence `laugh_syllables,tagger,clean`; `--min-tag 150` (so `[ağlama]` is written).
+- Audio: speech clips Sidon-restored only (`--wavs wavs_sidon --long-wavs wavs_sidon --restored-only`); event clips keep `--events-wavs wavs_clean` (Sidon removes laughs and cries). Replay: no FLEURS in stage 2 (anchors replace it).
+- Sentence sets: Freya-TR-Eval lines 0–119 were used in stage 1 rounds; stage 2 uses lines 120–199 for style / tag probes and 200+ for blind regression rounds, 20 new lines per round, never reused.
+- Commit only files this plan creates or changes. Never stage `README.md` or `notebooks/`. Never stash, reset or switch branches. Push to `main`.
+
+## Review Focus
+
+- **Label words spoken aloud.** A model that reads "gülme" or "öfkeyle" as a word is the most likely visible failure. Test: `read_aloud("öfkeyle neden geldin", "(öfkeyle) Neden geldin?") == ["öfkeyle"]`, and `read_aloud` is reported per run and gated at 0.
+- **WER punished for a laugh.** Whisper writes laughter as "hahaha"; the reference keeps "gülme" after `for_cer`. Both would count as errors and hide real word errors. Test: `scoring_texts("[gülme] Hadi gidelim.", "Hahaha hadi gidelim")` returns equal strings.
+- **Continuation overrides the style.** In continue mode the model copies the prompt clip's delivery (clip B is neutral). Task 4 measures style hit rate in both modes; Task 6 scores styled sentences in the mode Task 4 picks, never silently in S1.
+- **The reference teaches the style instead of the text.** If a labelled row's `ref_audio` is another angry clip, the model can learn "angry because the ref is angry" and ignore `(öfkeyle)`. Test: `pair_neutral_refs` never returns a labelled clip and never the target itself.
+- **`--lora-scale` on an LM-only adapter.** `eval_tts.py` exits when a part has 0 LoRA layers, so `--lora-scale 0.5,0` on a run 2a checkpoint would fail. Test: `check_scale_parts({"lm": 144, "dit": 0}, 0.5, 0.0)` passes; `check_scale_parts({"lm": 144, "dit": 0}, 0.5, 1.0)` passes (scale 1 on a missing part changes nothing); `check_scale_parts({"lm": 0, "dit": 48}, 0.5, 0.0)` raises.
+
+---
+
+### Task 1: Label-aware scoring (`ttsdata/stylemetrics.py`, `scripts/score_styles.py`, `scripts/eval_tts.py`)
+
+**Files:**
+- Create: `ttsdata/stylemetrics.py`
+- Create: `scripts/score_styles.py`
+- Modify: `scripts/eval_tts.py` (`cmd_score`: label-aware texts and a `read_aloud` field; `cmd_synth`: `check_scale_parts` instead of the inline `if not n["lm"] or not n["dit"]` exit)
+- Modify: `ttsdata/evalmetrics.py` (add `check_scale_parts`)
+- Test: `tests/test_stylemetrics.py`, `tests/test_evalmetrics.py`
+
+**Interfaces:**
+- Consumes: `ttsdata.labels.STYLE_PREFIX`, `EVENT_TAG`; `ttsdata.textnorm.for_cer`; `ttsdata.eventverify.laugh_syllables`; `ttsdata.emotion.E2V`, `COARSE`; `ttsdata.speakers.load_encoder`, `embed_clips`.
+- Produces:
+  - `strip_labels(text: str) -> str`: drops a leading `(...)` prefix and every `[...]` tag, squeezes spaces.
+  - `scoring_texts(reference: str, hypothesis: str) -> tuple[str, str]`: both through `for_cer`, reference after `strip_labels`; when the reference had a tag, hypothesis tokens with `laugh_syllables(tok) >= 2` are dropped.
+  - `read_aloud(hypothesis: str, reference: str, extra_words: tuple[str, ...] = ()) -> list[str]`: label words (inner text of every `STYLE_PREFIX` / `EVENT_TAG` value, plus `extra_words` such as the English probe prompts) present in `for_cer(hypothesis)` but not in `for_cer(strip_labels(reference))`.
+  - `style_hit(post: dict[str, float], target: str) -> bool`: argmax over `COARSE` equals target.
+  - `style_summary(rows: list[dict], target: str) -> dict` with keys `n, hit_rate, target_post, neutral_rate` (rows carry `e2v` posteriors).
+  - `tag_realised(asr: str, tag: str) -> bool | None`: `laugh` → `laugh_syllables(asr) >= 2`; other tags → `None` (ears only).
+  - `check_scale_parts(counts: dict[str, int], lm: float, dit: float) -> None` in `evalmetrics.py`: raises `ValueError` when a part whose scale is not 1 has 0 layers.
+  - `scripts/score_styles.py --run NAME [--wavs DIR] --target {angry,happy,sad,neutral} [--tag laugh|breath|cry|sigh] [--voice-ref-run NAME]` → `data/eval/<run>/styles.jsonl` rows `{k, e2v, hit, tag_realised, ref_cos}` and one row appended to `data/eval/style_summary.md` (`| run | target | n | hit rate | target post | neutral rate | tag realised | read aloud | voice cos | date |`). `--wavs` scores any folder of wavs (used for the Sidon check in Task 5). `ref_cos` = ECAPA cosine to the mean embedding of `--voice-ref-run` (the S1 plain run), so a style that changes the voice shows up.
+  - `scores.jsonl` rows gain `read_aloud: list[str]`; `summary.md` rows unchanged.
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+from ttsdata.stylemetrics import strip_labels, scoring_texts, read_aloud, style_hit, style_summary, tag_realised
+from ttsdata.evalmetrics import check_scale_parts
+import pytest
+
+def test_strip_labels():
+    assert strip_labels("(öfkeyle) Neden geldin?") == "Neden geldin?"
+    assert strip_labels("[gülme] Hadi gidelim. [nefes]") == "Hadi gidelim."
+    assert strip_labels("Saat beşte (belki) gelir.") == "Saat beşte (belki) gelir."  # only a leading prefix
+
+def test_scoring_texts_ignore_laughter_only_when_tagged():
+    assert scoring_texts("[gülme] Hadi gidelim.", "Hahaha hadi gidelim") == ("hadi gidelim", "hadi gidelim")
+    assert scoring_texts("Hadi gidelim.", "Hahaha hadi gidelim") == ("hadi gidelim", "hahaha hadi gidelim")
+
+def test_read_aloud():
+    assert read_aloud("öfkeyle neden geldin", "(öfkeyle) Neden geldin?") == ["öfkeyle"]
+    assert read_aloud("gülme hadi", "[gülme] Hadi.") == ["gülme"]
+    assert read_aloud("gülme sakın", "Gülme sakın.") == []          # the word is in the sentence itself
+    assert read_aloud("angry neden", "Neden?", extra_words=("angry",)) == ["angry"]
+
+def test_style_hit_and_summary():
+    p_ang = {"angry": 0.6, "neutral": 0.3, "sad": 0.1, "happy": 0.0, "fearful": 0.9}  # non-coarse classes ignored
+    assert style_hit(p_ang, "angry") and not style_hit(p_ang, "sad")
+    rows = [{"e2v": p_ang}, {"e2v": {"angry": 0.1, "neutral": 0.8, "sad": 0.1, "happy": 0.0}}]
+    s = style_summary(rows, "angry")
+    assert s["n"] == 2 and s["hit_rate"] == 0.5 and s["neutral_rate"] == 0.5 and abs(s["target_post"] - 0.35) < 1e-9
+
+def test_tag_realised():
+    assert tag_realised("Hahaha hadi gidelim", "laugh") is True
+    assert tag_realised("hadi gidelim", "laugh") is False
+    assert tag_realised("hadi gidelim", "cry") is None
+
+def test_check_scale_parts_lm_only_adapter():
+    check_scale_parts({"lm": 144, "dit": 0}, 0.5, 0.0)
+    check_scale_parts({"lm": 144, "dit": 0}, 0.5, 1.0)
+    with pytest.raises(ValueError):
+        check_scale_parts({"lm": 0, "dit": 48}, 0.5, 0.0)
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `.venv/bin/python -m pytest tests/test_stylemetrics.py tests/test_evalmetrics.py -v`
+Expected: FAIL with `ModuleNotFoundError: ttsdata.stylemetrics` (and `ImportError` for `check_scale_parts`).
+
+- [ ] **Step 3: Implement `ttsdata/stylemetrics.py` and `check_scale_parts`**
+
+Pure functions only; `E2V` and ECAPA are imported inside `scripts/score_styles.py`, not here. `read_aloud` matches multi-word labels ("üzgün bir sesle") as a substring of the normalised hypothesis.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `.venv/bin/python -m pytest tests/ -q`
+Expected: all PASS (the existing suite included).
+
+- [ ] **Step 5: Wire into `scripts/eval_tts.py` and write `scripts/score_styles.py`**
+
+`cmd_score`: `ref, hyp = scoring_texts(sentences[k], asr_text)`; WER/CER on those; add `read_aloud(asr_text, sentences[k], extra_words=<inner words of run.json "prompt">)`. The text prompt itself (`--prompt`) is never part of the reference. `cmd_synth`: replace the exit with `check_scale_parts(n, *lora_scale)` (message unchanged on failure). `score_styles.py` runs in `~/tts/venv-voxcpm` (FunASR is in the server venv since 2026-10-27; install the `emotions` extra there only if the import fails, and say so in the results).
+
+- [ ] **Step 6: Smoke test on the Mac** (3 wavs, CPU)
+
+Run: `.venv/bin/python scripts/score_styles.py --wavs data/eval/smoke_voxcpm2/wavs --target neutral --run smoke_style`
+Expected: `data/eval/smoke_style/styles.jsonl` with one row per wav and a row in `data/eval/style_summary.md`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add ttsdata/stylemetrics.py ttsdata/evalmetrics.py scripts/score_styles.py scripts/eval_tts.py tests/test_stylemetrics.py tests/test_evalmetrics.py
+git commit -m "Stage 2 scoring: label-aware WER, style hit rate, laugh realisation, LM-only --lora-scale"
+```
+
+---
+
+### Task 2: Blind pages as repo code (`ttsdata/blindpage.py`, `scripts/blind_page.py`)
+
+Stage 1 page builders live only on astrobot (`data/ab_page6.py`). Stage 2 needs the A/B page again and a new style page, so they move into the repo.
+
+**Files:**
+- Create: `ttsdata/blindpage.py` (pure: keys, shuffling, tallies)
+- Create: `scripts/blind_page.py` (HTML writer; start from `scp astrobot:~/voice-data/data/ab_page6.py` and keep its look: inline audio as data URIs, CSS tokens with dark mode, radio picks kept in `localStorage`, a "Show result" button)
+- Test: `tests/test_blindpage.py`
+
+**Interfaces:**
+- Produces:
+  - `ab_key(n: int, seed: int) -> list[str]`: per pair, the side ("A"/"B") our system is on.
+  - `tally_ab(key: list[str], picks: list[str]) -> dict` with `ours, theirs, same` (picks are "A", "B" or "same").
+  - `style_items(by_style: dict[str, list[str]], n_per: int, seed: int) -> list[dict]`: `{"wav", "style"}` items, `n_per` from each style, shuffled; the same sentence index never appears twice in a row.
+  - `tally_style(items: list[dict], picks: list[str]) -> dict` with `per_style: {style: {"correct", "n"}}` and `confusion: {(true, picked): count}`.
+  - `blind_page.py ab --ours DIR --theirs DIR --name-theirs TEXT --sentences FILE --n 20 --seed S --title TEXT --out HTML` and `blind_page.py style --style angry=DIR --style happy=DIR --style sad=DIR --style neutral=DIR --n-per 8 --seed S --title TEXT --out HTML [--ask-natural]`. The style page asks per clip "which delivery?" (happy / sad / angry / neutral) and, with `--ask-natural`, "sounds natural? yes / no". Keys go to `<out>.key.json` next to the page and are not in the page source. A third use, the tag page, is `style` with tag names as keys (`--style laugh=DIR --style none=DIR`).
+
+- [ ] **Step 1: Write the failing tests**
+
+```python
+from ttsdata.blindpage import ab_key, tally_ab, style_items, tally_style
+
+def test_ab_key_is_seeded_and_mixed():
+    k = ab_key(20, seed=6)
+    assert k == ab_key(20, seed=6) and set(k) == {"A", "B"} and len(k) == 20
+
+def test_tally_ab():
+    assert tally_ab(["A", "B", "A"], ["A", "A", "same"]) == {"ours": 1, "theirs": 1, "same": 1}
+
+def test_style_items_and_tally():
+    by = {s: [f"{s}/{i:04d}.wav" for i in range(10)] for s in ("angry", "sad", "neutral")}
+    items = style_items(by, n_per=4, seed=0)
+    assert len(items) == 12 and {i["style"] for i in items} == {"angry", "sad", "neutral"}
+    idx = [i["wav"].split("/")[1] for i in items]
+    assert all(a != b for a, b in zip(idx, idx[1:]))
+    t = tally_style(items, [i["style"] for i in items])
+    assert t["per_style"]["angry"] == {"correct": 4, "n": 4}
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `.venv/bin/python -m pytest tests/test_blindpage.py -v`
+Expected: FAIL with `ModuleNotFoundError`.
+
+- [ ] **Step 3: Implement `ttsdata/blindpage.py`, then `scripts/blind_page.py`**
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `.venv/bin/python -m pytest tests/test_blindpage.py -v`
+Expected: 3 PASS.
+
+- [ ] **Step 5: Rebuild round 6 from its run dirs as a check** (on astrobot, CPU)
+
+Run: `~/tts/venv-voxcpm/bin/python scripts/blind_page.py ab --ours data/eval/s0_voxcpm2_contB_r6/wavs --theirs data/eval/<the Trendyol run that data/ab_page6.py reads>/wavs --name-theirs Trendyol --sentences data/eval/r6_sentences.txt --n 20 --seed 6 --title "Rebuild check" --out /tmp/check.html`
+Expected: a page that opens in a browser, 20 pairs, picks persist on reload, Show result counts match `tally_ab`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add ttsdata/blindpage.py scripts/blind_page.py tests/test_blindpage.py
+git commit -m "Blind A/B and style-identification pages as repo code"
+```
+
+---
+
+### Task 3: Stage 2 manifest options (`ttsdata/manifest.py`, `scripts/make_voxcpm_manifest.py`)
+
+**Files:**
+- Modify: `ttsdata/manifest.py` (add `pair_neutral_refs`, `folder_rows`)
+- Modify: `ttsdata/labels.py` (`allowed_labels` gains `exclude`)
+- Modify: `scripts/make_voxcpm_manifest.py` (new flags; the FLEURS replay loop becomes a `folder_rows` call)
+- Test: `tests/test_manifest.py`, `tests/test_labels.py`
+
+**Interfaces:**
+- Consumes: `labels_of(r)` closure already in the script (labels a row can carry), `pair_references` (kept for stage 1).
+- Produces:
+  - `pair_neutral_refs(targets: list[dict], pool: list[dict], is_plain: Callable[[dict], bool], ratio: float, seed: int) -> dict[str, str]`: for a seeded `ratio` of targets, a ref from `pool` with the same `speaker_id`, `is_plain(ref)` true, ref id ≠ target id, preferring ≥ 3 s and the same non-null `speaker_hint` (same rules as `pair_references`). Targets whose speaker has no plain clip get no ref. The pool is the whole tier, so a ref may be a clip that is not itself a training row.
+  - `folder_rows(rdir: Path, out: Path, want: int, dataset_id: int, seed: int, ref: tuple[str, float] | None = None) -> tuple[list[dict], int]`: rows from a folder of `<id>.wav` + `<id>.txt` (text through `replay_text`), paths relative to `out`, `ref` = (path relative to `out`, duration) added as `ref_audio` / `ref_duration`; returns (rows, skipped).
+  - `allowed_labels(styles, tags, min_style, min_tag, exclude: frozenset[str] = frozenset())`: names in `exclude` (style or tag keys, e.g. `angry`, `laugh`) are never allowed, so Task 4 can take a label the base model already does out of training.
+  - New CLI flags: `--styles-exclude angry,...` and `--tags-exclude laugh,...` (both feed `exclude`), `--plain-rows {tier,none}` (default `tier` = today's behaviour; `none` = corpus rows without a written label leave train and val), `--labelled-ref-ratio 0.8` (stage 2: labelled rows get refs from `pair_neutral_refs`), `--anchor-dir DIR`, `--anchor-share 0.5` (anchor rows as a share of the final train), `--anchor-ref data/eval/refs/ref_male_b.wav`, anchor rows `dataset_id: 2`. `tier_report.md` gains a line per new option (anchor rows, labelled rows with a neutral ref, plain rows dropped).
+
+- [ ] **Step 1: Write the failing tests** (append to `tests/test_manifest.py`, reuse its `R` helper)
+
+```python
+import numpy as np, soundfile as sf
+from ttsdata.manifest import pair_neutral_refs, folder_rows
+
+def test_pair_neutral_refs_takes_plain_same_speaker_only():
+    lab = [R(i, spk="a") for i in range(3)]
+    pool = lab + [R(10, spk="a"), R(11, spk="a", dur=2.0), R(12, spk="b")]
+    plain = lambda r: r["id"] in {"c10", "c11", "c12"}
+    pairs = pair_neutral_refs(lab, pool, plain, ratio=1.0, seed=0)
+    assert set(pairs) == {"c0", "c1", "c2"} and set(pairs.values()) == {"c10"}   # >= 3 s preferred, never "b"
+    assert pair_neutral_refs([R(20, spk="z")], pool + [R(20, spk="z")], plain, 1.0, 0) == {}
+
+def test_folder_rows_with_ref(tmp_path):
+    d = tmp_path / "anchor"; d.mkdir()
+    for i, t in enumerate(["Merhaba dünya.", "Bugün hava çok güzel."]):
+        sf.write(d / f"a{i}.wav", np.zeros(24000 * 2, dtype=np.float32), 24000)
+        (d / f"a{i}.txt").write_text(t, encoding="utf-8")
+    rows, skipped = folder_rows(d, tmp_path / "out", want=5, dataset_id=2, seed=0, ref=("../refs/b.wav", 6.1))
+    assert len(rows) == 2 and skipped == 0 and rows[0]["dataset_id"] == 2
+    assert all(r["ref_audio"] == "../refs/b.wav" and r["ref_duration"] == 6.1 for r in rows)
+    assert all(validate_row(r) == [] for r in rows)
+```
+
+and in `tests/test_labels.py`:
+
+```python
+from ttsdata.labels import allowed_labels
+
+def test_allowed_labels_exclude():
+    s, t = allowed_labels(["angry"] * 60 + ["sad"] * 60, ["laugh"] * 400, 50, 300, exclude=frozenset({"angry", "laugh"}))
+    assert s == {"sad"} and t == set()
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `.venv/bin/python -m pytest tests/test_manifest.py tests/test_labels.py -v`
+Expected: the three new tests FAIL (`ImportError`, `TypeError: unexpected keyword 'exclude'`); the old ones PASS.
+
+- [ ] **Step 3: Implement both functions and the flags**
+
+With `--plain-rows none`, `labels_of` decides plainness after `allowed_labels` (a row whose label is not written counts as plain). The `--label-repeat` oversampling still applies to labelled rows; anchors are counted after oversampling, `want = round(anchor_share / (1 - anchor_share) * len(train))`. FLEURS replay keeps working through `folder_rows(..., dataset_id=1)`; stage 1 output with default flags must not change (Step 4 checks it).
+
+- [ ] **Step 4: Run the tests, then check stage 1 output did not change**
+
+Before committing, save the committed script: `git show HEAD:scripts/make_voxcpm_manifest.py > <scratch>/old_manifest.py`. Build stage 1 locally with both (`PYTHONPATH=. .venv/bin/python <script> --root data/dataset --out <scratch>/{old,new} --wavs wavs --max-hours 60`; the scored held-out file in `data/eval/` is only written when missing, so it is not touched) and run `diff <scratch>/old/train.jsonl <scratch>/new/train.jsonl`.
+Expected: `pytest tests/ -q` all PASS; no diff.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add ttsdata/manifest.py ttsdata/labels.py scripts/make_voxcpm_manifest.py tests/test_manifest.py tests/test_labels.py
+git commit -m "Stage 2 manifest: labelled rows only, neutral refs for labelled rows, anchor rows from a folder"
+```
+
+---
+
+### Task 4: Base-model probe (GPU, ~1 h, ask first)
+
+What does untrained VoxCPM2 already do? Each style and tag is tried in four setups, all with clip B's voice and cfg 3.0:
+
+| setup | prompt / clip | how |
+|---|---|---|
+| P1 continue, Turkish | S1 + Turkish prefix | `--prompt-wav B --ref-wav B --prompt "(öfkeyle)"` |
+| P2 clone, Turkish | clone only + Turkish prefix | `--ref-wav B --prompt "(öfkeyle)"` |
+| P3 clone, English | clone only + English prefix | `--ref-wav B --prompt "(An angry voice)"`; happy `"(A happy, cheerful voice)"`, sad `"(A sad voice)"` |
+| P4 styled clip | continue from a styled clip, clone clip B | `--prompt-wav <style clip> --ref-wav B --prompt ''` |
+
+Plain baseline P0 = S1 on the same sentences. Tags are tried in P1 and P2 with the Turkish tag inline, and in P2 with `[laughter]` / `[breath]` / `[crying]` in place of the Turkish tag.
+
+**Files:**
+- Create: `data/eval/style_neutral.txt` (Freya lines 120–139: emotion-free text, so any style must come from the voice)
+- Create: `data/eval/style_matched_{angry,happy,sad}.txt` (10 texts each from `data/voxcpm_stage2/val.jsonl` rows carrying that prefix, label stripped with `strip_labels`: text that fits the style; the current build uses the same calibrated cuts and the same val split as the Task 5 rebuild)
+- Create: `data/eval/tags_{laugh,breath,cry}.txt` (Freya lines 140–169, 10 per tag, tag at start for 5 and at end for 5, via `ttsdata.labels.tag_text`)
+- Create: `data/eval/refs/style_{angry,happy,sad}.wav` + `.txt` (for P4: a male restored clip per style, emotion2vec+ confidence above the calibrated cut, PESQ ≥ 3.5, 4–8 s; the user listens to the three before use)
+- Create: `scripts/probe_stage2.sh` (loops over setups × labels × sets with `eval_tts.py all` then `score_styles.py`; runs named `s2p_<setup>_<label>_<set>`; done marker `data/logs/s2_probe_done`)
+- Create: `docs/superpowers/plans/stage2_results.md` (probe table and decision)
+
+- [ ] **Step 1: Write the sentence files and pick the P4 clips** (Mac for Freya text, astrobot for the matched text and the clips).
+
+- [ ] **Step 2: Ask the user for the GPU, check `tmux ls`, launch `scripts/probe_stage2.sh` in tmux `s2probe`**
+
+Expected: about 1,000 short clips; `style_summary.md` rows for every run.
+
+- [ ] **Step 3: Build a probe listening page** with `blind_page.py style` per setup (8 neutral-text clips per style plus 8 P0 clips as "neutral"), and one tag page per setup (`laugh`, `breath`, `cry`, `none`). Send the pages to the user.
+
+- [ ] **Step 4: Record and decide** in `stage2_results.md`:
+
+| per label | measure |
+|---|---|
+| style, per setup | emotion2vec+ hit rate on neutral text and on matched text; neutral rate; listener correct of 8; WER; voice cos to P0; read aloud |
+| tag, per setup | laugh realised (Whisper); listener heard the sound of 10; tag word read aloud |
+
+Decision rule: a label whose best setup already meets its Task 7 gate (style: listener ≥ 6/8 and hit rate gate; tag: listener ≥ 7/10) **leaves the training set** (Task 5 builds with `--styles-exclude` / `--tags-exclude` for it) and its inference recipe is recorded. The setup with the best style results among P1/P2 (the ones a LoRA can improve) becomes the **styled inference mode** for Task 6. If no label is missing, stage 2 ends here with no training: write that up and stop.
+
+- [ ] **Step 5: Commit** sentence files, `probe_stage2.sh`, `stage2_results.md` (not the wavs).
+
+---
+
+### Task 5: Training data: Sidon check, anchor set, manifest rebuild (GPU, ask first)
+
+**Files:**
+- Create: `scripts/make_anchor_set.py` (subcommands `sentences` and `export`)
+- Create: `ttsdata/anchors.py` (pure: `pick_sentences`, `anchor_keep`)
+- Test: `tests/test_anchors.py`
+
+**Interfaces:**
+- `pick_sentences(rows: list[dict], exclude: set[str], n: int, seed: int) -> list[str]`: rows are tier rows (already through the quality gates); returns `normalized_text` of train-split, unlabelled clips 3–20 s, no `text_flags`, not in `exclude` (every line of every `data/eval/*.txt`), deduplicated, seeded sample of `n`.
+- `anchor_keep(score: dict, min_ref_cos: float = 0.75) -> bool`: keep when `wer == 0`, `read_aloud == []`, `spk_cos` (to the run centre) ≥ `min_ref_cos`, and `utmos` is not None. (High-voice drift shows up as low `spk_cos`.)
+- `make_anchor_set.py sentences --n N --out data/eval/anchor_sentences.txt`; `make_anchor_set.py export --run s2_anchor --sentences data/eval/anchor_sentences.txt --out data/anchor_base` → `<k>.wav` (resampled to 24 kHz, −20 LUFS via `ttsdata.build._loudness_normalize`) + `<k>.txt`, and a printed keep rate.
+
+- [ ] **Step 1: Write the failing tests** (`tests/test_anchors.py`)
+
+```python
+from ttsdata.anchors import pick_sentences, anchor_keep
+
+def test_pick_sentences_filters_and_excludes():
+    rows = [{"normalized_text": f"Cümle {w}.", "duration": 4.0, "split": "train", "labelled": False} for w in ("bir", "iki", "üç")]
+    rows += [{"normalized_text": "Kısa.", "duration": 2.0, "split": "train", "labelled": False},
+             {"normalized_text": "Val.", "duration": 4.0, "split": "val", "labelled": False},
+             {"normalized_text": "Öfkeli.", "duration": 4.0, "split": "train", "labelled": True}]
+    out = pick_sentences(rows, exclude={"Cümle iki."}, n=10, seed=0)
+    assert sorted(out) == ["Cümle bir.", "Cümle üç."]
+
+def test_anchor_keep():
+    ok = {"wer": 0.0, "read_aloud": [], "spk_cos": 0.82, "utmos": 3.1}
+    assert anchor_keep(ok)
+    assert not anchor_keep({**ok, "wer": 0.1}) and not anchor_keep({**ok, "spk_cos": 0.6})
+```
+
+- [ ] **Step 2: Run, implement, run again**
+
+Run: `.venv/bin/python -m pytest tests/test_anchors.py -v` (FAIL `ModuleNotFoundError`), implement `ttsdata/anchors.py` and the script, run again (2 PASS). Rows passed to `pick_sentences` get `labelled` from the stage 2 tier (the script computes it with the same `labels_of` logic; factor it out of `make_voxcpm_manifest.py` into `ttsdata/manifest.py` if needed rather than copying it).
+
+- [ ] **Step 3: Rebuild `data/voxcpm_stage2`** on astrobot (CPU; keep the old build as `data/voxcpm_stage2_prev`)
+
+```bash
+cd ~/voice-data && mv data/voxcpm_stage2 data/voxcpm_stage2_prev
+~/tts/venv-voxcpm/bin/python scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 \
+  --wavs wavs_sidon --long-wavs wavs_sidon --restored-only --events-wavs wavs_clean \
+  --auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99 --min-tag 150 \
+  --plain-rows none --labelled-ref-ratio 0.8 --label-first --label-quota 3000 --label-max-share 1.0 \
+  --label-repeat 1 --replay-share 0 --max-hours 40 --anchor-share 0 [--styles-exclude/--tags-exclude from Task 4]
+```
+Expected: `tier_report.md` lists per label the clips in tier, in slice and written; labelled train rows ≈ 9k–12k; every train row labelled; no FLEURS rows. Write the label table into `stage2_results.md`. If `--restored-only` leaves any style under 1,000 clips, stop and ask the user (option: `wavs_clean` for that style's clips).
+
+- [ ] **Step 4: Does Sidon keep the style?** (GPU, ~15 min, ask first)
+
+For 200 written clips per style, score both `wavs_clean` and `wavs_sidon` copies: `score_styles.py --wavs <folder of symlinks> --target <style> --run s2_sidoncheck_<style>_<wavs>`. Record hit rates. If the Sidon hit rate is under 0.8 × the `wavs_clean` hit rate for a style, stop and ask the user before training (Sidon is flattening that style).
+
+- [ ] **Step 5: Synthesise the anchor set** (GPU, ask first; tmux `s2anchor`, marker `data/logs/s2_anchor_done`)
+
+N = 1.25 × labelled train rows from Step 3 (expect ~80 % to pass `anchor_keep`). Synthesise with S1 exactly (`eval_tts.py all --system voxcpm2 ... --run s2_anchor --sentences data/eval/anchor_sentences.txt --utmos 1 --spk 1`), first `--limit 200` to measure the real-time factor and write the full-run estimate in `stage2_results.md`, then the rest (synth resumes). Then `make_anchor_set.py export`.
+Expected: `data/anchor_base/` with ≥ labelled-train-rows clips; keep rate printed.
+
+- [ ] **Step 6: Final build with anchors**
+
+Same command as Step 3 plus `--anchor-dir data/anchor_base --anchor-share 0.5 --anchor-ref data/eval/refs/ref_male_b.wav`.
+Expected: train = labelled rows + equal number of anchor rows (`dataset_id: 2`, all with clip B as ref); `validate_row` passes; listen to 5 random labelled rows and 5 anchors via `data/listening_sample/stage2_manifest.html` (built with `blind_page.py style --style <label>=...`, non-blind, keys shown) before training.
+
+- [ ] **Step 7: Commit** `ttsdata/anchors.py`, `scripts/make_anchor_set.py`, `tests/test_anchors.py`, `data/eval/anchor_sentences.txt`, `stage2_results.md` (manifests and wavs stay on the server).
+
+---
+
+### Task 6: Run 2a, LM-only LoRA from base, and checkpoint scoring (GPU, ask first)
+
+**Files:**
+- Create: `training/voxcpm/stage2_style_lm.yaml`
+- Create: `scripts/train_stage2.sh` (tmux launcher, same shape as `scripts/train_stage1.sh`)
+- Create: `scripts/score_stage2.sh` (per checkpoint and scale)
+
+**Interfaces:**
+- Consumes: `data/voxcpm_stage2/{train,val}.jsonl` (Task 5), styled inference mode from Task 4, `eval_tts.py --lora-scale S,0` (Task 1).
+- Produces: `~/tts/checkpoints/stage2_v2a/step_*`, runs `s2a_step<N>_x<S>_<set>`, rows in `summary.md` and `style_summary.md`.
+
+- [ ] **Step 1: Write `training/voxcpm/stage2_style_lm.yaml`**
+
+Copy `training/voxcpm/stage1_run5a_lm.yaml` (header comment: what this run is, the manifest command from Task 5 Step 6, the step count) and set: `train_manifest` / `val_manifest` → `data/voxcpm_stage2`, `save_path: /home/ibrahim/tts/checkpoints/stage2_v2a`, `tensorboard: /home/ibrahim/tts/logs/stage2_v2a`, `lora: {enable_lm: true, enable_dit: false, enable_proj: false, r: 32, alpha: 32, dropout: 0.0}`, `learning_rate: 0.0001`, `warmup_steps: 100`, batch 4 × accum 4, `num_iters` = `max_steps` = 2 epochs = `2 * ceil(lines(train.jsonl) / 16)` (write the number), `save_interval: 200`, `valid_interval: 200`. Rank 32 (half of stage 1) because the adapter has less to learn: styles and four tags, not a language.
+
+- [ ] **Step 2: Ask for the GPU, `tmux ls`, launch** `tmux new-session -d -s stage2a 'bash ~/voice-data/scripts/train_stage2.sh'`; check `nvidia-smi` and the log after 5 minutes.
+Expected: loss lines every 10 steps, no OOM, ~0.6 s/step (≈ 30 min for 3,000 steps).
+
+- [ ] **Step 3: Write and run `scripts/score_stage2.sh STEP SCALE`** for steps 400, 800, 1200, … , end at scale 1.0, marker `data/logs/score_s2a_done`
+
+Per call, with `--system voxcpm2-lora --lora .../step_<STEP> --lora-scale <SCALE>,0 --cfg 3.0`:
+1. plain: Freya 0–39 in S1 (`--prompt-wav B --ref-wav B --prompt ''`), `eval_tts.py all`, then `score_styles.py --target neutral --voice-ref-run s0_voxcpm2_contB_freya40` (stage 1's untrained clip B run on the same 40 lines; regenerate it if missing);
+2. styles: `style_neutral.txt` and `style_matched_<style>.txt` per style in the Task 4 mode with the Turkish prefix as `--prompt`;
+3. tags: `tags_<tag>.txt` per tag in the Task 4 mode.
+Then also PESQ / UTMOS p10 / CPPS / syl/s for the plain set with the stage 1 probe scripts (`data/*.py` on astrobot; copy the one used for the round 4 table into `scripts/` if it is not there yet).
+
+- [ ] **Step 4: Pick the candidate and sweep the strength**
+
+Candidate = the earliest checkpoint that meets the style and tag number gates (Task 7 table) for the labels it trains. Score it again at `--lora-scale` 0.5 and 0.75. Pick the **lowest scale** that still meets the number gates. Record all rows in `stage2_results.md`.
+
+- [ ] **Step 5: Commit** the config, both scripts and `stage2_results.md`.
+
+If no checkpoint meets the number gates: one retry (run 2b) with `r: 64, alpha: 64` and `--label-repeat 2`, same anchors. A second failure stops stage 2 for a talk with the user.
+
+---
+
+### Task 7: Exit gates (listening + numbers)
+
+All pages built with `scripts/blind_page.py`, sentences never heard before, keys kept out of the page.
+
+| gate | measure | pass |
+|---|---|---|
+| **Plain regression** (user's rule) | blind A/B, 20 plain Freya sentences (200–219), candidate in S1 vs untrained in S1 | untrained preferred ≤ candidate preferred (ties fine) |
+| Plain numbers | Freya 0–39 in S1 vs `s0_voxcpm2_contB_freya40` | WER ≤ untrained + 0.5 pt; PESQ p10 and UTMOS p10 ≥ untrained − 0.1; syl/s within ±0.5 of untrained; read aloud 0 |
+| Style by ear | style page: 8 neutral-text clips per trained style + 8 plain clips, listener picks the delivery | each trained style ≥ 6/8 correct; plain clips picked "neutral" ≥ 6/8; "natural" ≥ 6/8 per style |
+| Style by numbers | emotion2vec+ hit rate on `style_neutral.txt` | angry ≥ 0.64, sad ≥ 0.42 (CosyVoice 3 text-unrelated figures, spec), happy ≥ 0.42; each ≥ base P1/P2 + 0.20 |
+| Voice kept | ECAPA cosine of styled clips to the plain untrained run centre | mean ≥ 0.70 |
+| Styled intelligibility | WER on style and tag sets, labels stripped | ≤ 3 % |
+| Tags | tag page: 10 clips per tag + 10 untagged | `[gülme]` heard ≥ 7/10 and Whisper laugh realised ≥ 0.7; `[nefes]` ≥ 7/10; `[ağlama]` ≥ 6/10; untagged clips with a heard sound ≤ 1/10; tag word read aloud 0 |
+
+- [ ] **Step 1: Build and send the three pages** (`stage2_ab_blind1.html`, `stage2_style1.html`, `stage2_tags1.html` in `data/listening_sample/`).
+
+- [ ] **Step 2: Record the user's answers** with `tally_ab` / `tally_style` in `stage2_results.md` (one section per round, as in stage 1).
+
+- [ ] **Step 3: Decide**
+
+- All gates met → stage 2 passes with this checkpoint and scale; write the inference recipe at the top of `stage2_results.md`.
+- Only the plain regression fails → deploy rule "adapter only for text that carries a label": plain text goes to the untrained model (`--lora-scale 0,0` is not exact, so route plain text to `--system voxcpm2`). Ask the user whether that counts as a pass.
+- A single tag fails (likely `[ağlama]`) → stage 2 passes without that tag; the tag goes back to metadata and is named in the results as stage 3 work (more cry clips from the 160 h run 5b slice).
+- Styles fail by ear → back to Task 6 retry rule.
+
+- [ ] **Step 4: Commit** `stage2_results.md` and push to `main`.
+
+---
+
+## Self-review notes
+
+- Spec coverage: labelled subset with Turkish prefixes and tags (Task 3, Task 5), neutral rows kept so "no prefix" stays neutral (anchor rows, Task 5), emotion2vec+ accuracy with the CosyVoice 3 text-unrelated figures (Task 7), tag realisation by detector and by ear (Tasks 1, 7). Deviations from the spec, each from stage 1 evidence: no "continue the same adapter" (fresh LM-only LoRA from base); unlabelled replay comes from base-model outputs, not corpus or FLEURS clips; EmpathicInsight agreement dropped (calibration 2026-10-27: angry precision 0.40); gender in the prefix dropped (stage 2 speaks in clip B's voice).
+- Calls made by the planner, not the user: rank 32 and 2 epochs; anchor share 0.5; `--labelled-ref-ratio 0.8`; Freya line ranges; the number thresholds in Task 7 other than the regression rule; the Sidon-check threshold (0.8×); the P1–P4 probe setups and English prompt wording.
+- Known unknowns: whether VoxCPM2 follows a style prefix at all while cloning (Task 4 answers it); real-time factor for the anchor synthesis (Task 5 Step 5 measures it); whether `[iç çekme]` (73 clips) or `[öksürük]` reach `--min-tag 150` in the 160 h run 5b data (not planned here; they stay metadata); happy labels rest on 19 rated clips, so happy's numeric gate is lower and the ear decides.
