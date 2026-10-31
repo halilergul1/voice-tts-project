@@ -209,3 +209,44 @@ def test_restored_only_merged_fallback_gives_members_back():
     q = {"c0": Q(0), "c1": Q(1), "c9_x2": {**Q(9), "id": "c9_x2"}}
     units = combine_units(restored_only(singles, rest), restored_only(merged, rest), q)
     assert sorted(r["id"] for r in units) == ["c0", "c1"]
+
+
+# --- stage 2 options (plan 2026-11-01-voxcpm2-stage2, Task 3)
+import numpy as np  # noqa: E402
+import soundfile as sf  # noqa: E402
+
+from ttsdata.manifest import combine_events, folder_rows, pair_neutral_refs  # noqa: E402
+
+
+def test_pair_neutral_refs_takes_plain_same_speaker_only():
+    lab = [R(i, spk="a") for i in range(3)]
+    pool = lab + [R(10, spk="a"), R(11, spk="a", dur=2.0), R(12, spk="b")]
+    plain = lambda r: r["id"] in {"c10", "c11", "c12"}  # noqa: E731
+    pairs = pair_neutral_refs(lab, pool, plain, ratio=1.0, seed=0)
+    assert set(pairs) == {"c0", "c1", "c2"} and set(pairs.values()) == {"c10"}  # >= 3 s preferred, never "b"
+    assert pair_neutral_refs([R(20, spk="z")], pool + [R(20, spk="z")], plain, 1.0, 0) == {}
+
+
+def test_folder_rows_with_ref(tmp_path):
+    d = tmp_path / "anchor"
+    d.mkdir()
+    for i, t in enumerate(["Merhaba dünya.", "Bugün hava çok güzel."]):
+        sf.write(d / f"a{i}.wav", np.zeros(24000 * 2, dtype=np.float32), 24000)
+        (d / f"a{i}.txt").write_text(t, encoding="utf-8")
+    rows, skipped = folder_rows(d, tmp_path / "out", want=5, dataset_id=2, seed=0, ref=("../refs/b.wav", 6.1))
+    assert len(rows) == 2 and skipped == 0 and rows[0]["dataset_id"] == 2
+    assert all(r["ref_audio"] == "../refs/b.wav" and r["ref_duration"] == 6.1 for r in rows)
+    assert all(r["audio"].startswith("../anchor/") for r in rows)
+    assert all(validate_row(r) == [] for r in rows)
+
+
+def test_combine_events_unconfirmed_per_tag():
+    units = [R(0), R(1)]
+    ev = lambda i, tag: {**R(10 + i), "base": f"c{i}", "tag": tag, "verified": False,  # noqa: E731
+                         "detector": {"reason": "unconfirmed"}}
+    events = [ev(0, "cry"), ev(1, "laugh")]
+    q = {r["id"]: Q(int(r["id"][1:])) for r in units + events}
+    out = combine_events(units, events, q, evidence={"clean"}, include_unconfirmed={"cry"})
+    assert sorted(r["id"] for r in out) == ["c1", "c10"]  # the cry clip replaces c0; the laugh clip stays out
+    out_all = combine_events(units, events, q, evidence={"clean"}, include_unconfirmed=True)
+    assert sorted(r["id"] for r in out_all) == ["c10", "c11"]

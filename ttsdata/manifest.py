@@ -86,17 +86,19 @@ _EVIDENCE_RANK = {"laugh_syllables": 3, "tagger": 2, "clean": 1, None: 0}
 
 
 def combine_events(units: list[dict], events: list[dict], quality: dict[str, dict], evidence: set[str],
-                   include_unconfirmed: bool = False, **tier_kw) -> list[dict]:
+                   include_unconfirmed: bool | set[str] = False, **tier_kw) -> list[dict]:
     """Event-extended clips (ttsdata extend-events / verify-events) replace their base clip in the units.
 
     An extended row is eligible when it is verified with an accepted evidence level (or unconfirmed and
-    include_unconfirmed), passes the tier, and its base is among the units; one row per base (strongest evidence,
-    then longest). Rows carry "root": "dataset_events"."""
+    include_unconfirmed: True for every tag, or a set of tags such as {"cry"}), passes the tier, and its base is among
+    the units; one row per base (strongest evidence, then longest). Rows carry "root": "dataset_events"."""
     def eligible(e):
         d = e.get("detector") or {}
         if e.get("verified"):
             return d.get("evidence") in evidence
-        return include_unconfirmed and d.get("reason") == "unconfirmed"
+        tag_ok = include_unconfirmed is True or (isinstance(include_unconfirmed, (set, frozenset))
+                                                 and e.get("tag") in include_unconfirmed)
+        return tag_ok and d.get("reason") == "unconfirmed"
 
     good = select_tier([e for e in events if eligible(e)], quality, **tier_kw)
     unit_ids = {u["id"] for u in units}
@@ -154,17 +156,66 @@ def pair_references(rows: list[dict], ratio: float = 0.4, seed: int = 0) -> dict
     eligible = [r for r in rows if len(by_spk[r["speaker_id"]]) >= 2]
     n = round(ratio * len(eligible))
     targets = sorted(rng.sample(eligible, n), key=lambda r: r["id"]) if n < len(eligible) else eligible
-    pairs: dict[str, str] = {}
-    for r in targets:
-        pool = [c for c in by_spk[r["speaker_id"]] if c["id"] != r["id"]]
-        if r.get("speaker_hint"):  # same named hint, else an unlabelled clip, never a clip labelled with another name
-            same = [c for c in pool if c.get("speaker_hint") == r["speaker_hint"]]
-            unlabelled = [c for c in pool if not c.get("speaker_hint")]
-            pool = same or unlabelled or pool
-        long_enough = [c for c in pool if c["duration"] >= 3.0]
-        pool = long_enough or pool
-        pairs[r["id"]] = rng.choice(sorted(pool, key=lambda c: c["id"]))["id"]
-    return pairs
+    return {r["id"]: _choose_ref(r, [c for c in by_spk[r["speaker_id"]] if c["id"] != r["id"]], rng) for r in targets}
+
+
+def _choose_ref(r: dict, pool: list[dict], rng: random.Random) -> str:
+    """A reference id for r from pool (same speaker, not r): same named hint, else an unlabelled clip, never a clip
+    labelled with another name; clips of at least 3 s first."""
+    if r.get("speaker_hint"):
+        same = [c for c in pool if c.get("speaker_hint") == r["speaker_hint"]]
+        unlabelled = [c for c in pool if not c.get("speaker_hint")]
+        pool = same or unlabelled or pool
+    long_enough = [c for c in pool if c["duration"] >= 3.0]
+    pool = long_enough or pool
+    return rng.choice(sorted(pool, key=lambda c: c["id"]))["id"]
+
+
+def pair_neutral_refs(targets: list[dict], pool: list[dict], is_plain, ratio: float, seed: int) -> dict[str, str]:
+    """Stage 2: for a seeded `ratio` of labelled targets, a reference from `pool` (the whole tier, so not only training
+    rows) with the same speaker that carries no label (is_plain), never the target itself; same preferences as
+    pair_references. Targets whose speaker has no plain clip get none. A neutral reference makes the text prefix,
+    not the reference's delivery, the only cue for the style."""
+    rng = random.Random(seed)
+    plain_by_spk: dict[str, list[dict]] = defaultdict(list)
+    for c in pool:
+        if is_plain(c):
+            plain_by_spk[c["speaker_id"]].append(c)
+    cands = {r["id"]: [c for c in plain_by_spk.get(r["speaker_id"], []) if c["id"] != r["id"]] for r in targets}
+    eligible = sorted((r for r in targets if cands[r["id"]]), key=lambda r: r["id"])
+    n = round(ratio * len(eligible))
+    chosen = sorted(rng.sample(eligible, n), key=lambda r: r["id"]) if n < len(eligible) else eligible
+    return {r["id"]: _choose_ref(r, cands[r["id"]], rng) for r in chosen}
+
+
+def folder_rows(rdir, out, want: int, dataset_id: int, seed: int,
+                ref: tuple[str, float] | None = None) -> tuple[list[dict], int]:
+    """Up to `want` manifest rows from a folder of <id>.wav + <id>.txt (FLEURS replay, base-model anchor clips),
+    in seeded random order; text through replay_text (unreadable text is skipped); paths relative to `out`; `ref` =
+    (reference path relative to `out`, its duration) added to every row. Returns (rows, skipped)."""
+    import os
+    from pathlib import Path
+
+    import soundfile as sf
+
+    rdir = Path(rdir)
+    files = sorted(rdir.glob("*.wav"))
+    random.Random(seed).shuffle(files)
+    rows, skipped = [], 0
+    for p in files:
+        if len(rows) >= want:
+            break
+        txt = p.with_suffix(".txt")
+        text = replay_text(txt.read_text(encoding="utf-8")) if txt.exists() else None
+        if text is None:  # digits, foreign words, markup: not readable as written
+            skipped += 1
+            continue
+        row = {"audio": f"{os.path.relpath(rdir, out)}/{p.name}", "text": text,
+               "duration": round(sf.info(p).duration, 3), "dataset_id": dataset_id}
+        if ref is not None:
+            row["ref_audio"], row["ref_duration"] = ref
+        rows.append(row)
+    return rows, skipped
 
 
 def replay_text(raw: str) -> str | None:

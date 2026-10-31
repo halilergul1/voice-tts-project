@@ -59,3 +59,8 @@ def test_auto_styles_from_emotion_labels():
     assert auto_styles(rows, min_conf=0.6) == {"a": ["angry"]}                    # neutral is the absence of a prefix
     assert auto_styles(rows, min_conf=0.6, per_class={"sad": 0.4}) == {"a": ["angry"], "c": ["sad"]}
     assert auto_styles(rows, min_conf=0.95) == {}
+
+
+def test_allowed_labels_exclude():
+    s, t = allowed_labels(["angry"] * 60 + ["sad"] * 60, ["laugh"] * 400, 50, 300, exclude=frozenset({"angry", "laugh"}))
+    assert s == {"sad"} and t == set()

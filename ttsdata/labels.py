@@ -32,13 +32,15 @@ STRONG_STYLES = frozenset(STYLE_PREFIX)
 _EVIDENCE_RANK = {"laugh_syllables": 3, "tagger": 2, "clean": 1, None: 0}
 
 
-def allowed_labels(styles: list[str], tags: list[str], min_style: int, min_tag: int) -> tuple[set[str], set[str]]:
-    """Styles / event tags that occur often enough in a slice to be worth a label (rarer ones stay metadata)."""
+def allowed_labels(styles: list[str], tags: list[str], min_style: int, min_tag: int,
+                   exclude: frozenset[str] = frozenset()) -> tuple[set[str], set[str]]:
+    """Styles / event tags that occur often enough in a slice to be worth a label (rarer ones stay metadata).
+    Names in `exclude` (style or tag keys) are never allowed, e.g. a style the base model already does."""
     from collections import Counter
 
     cs, ct = Counter(styles), Counter(tags)
-    return ({s for s, n in cs.items() if n >= min_style and s in STYLE_PREFIX},
-            {t for t, n in ct.items() if n >= min_tag and t in EVENT_TAG})
+    return ({s for s, n in cs.items() if n >= min_style and s in STYLE_PREFIX and s not in exclude},
+            {t for t, n in ct.items() if n >= min_tag and t in EVENT_TAG and t not in exclude})
 
 
 def labelled_text(text: str, tags: dict | None, styles_ok: set[str], events_ok: set[str]) -> str:

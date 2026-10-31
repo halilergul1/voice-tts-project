@@ -34,8 +34,8 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.labels import EVENT_TAG, STYLE_PREFIX, allowed_labels, auto_styles, labelled_text, oversample  # noqa: E402
-from ttsdata.manifest import (cap_hours, combine_events, combine_units, labels_first, manifest_row,  # noqa: E402
-                              pair_references, replay_text, restore_bases, restored_only,
+from ttsdata.manifest import (cap_hours, combine_events, combine_units, folder_rows, labels_first,  # noqa: E402
+                              manifest_row, pair_neutral_refs, pair_references, restore_bases, restored_only,
                               stage_filter, tier_funnel, validate_row)
 from ttsdata.voicegender import DESCRIPTIONS, describe  # noqa: E402
 
@@ -103,6 +103,19 @@ def main() -> int:
     ap.add_argument("--events-wavs", default="wavs_clean")
     ap.add_argument("--event-evidence", default="laugh_syllables,tagger,clean", help="accepted verification evidence levels")
     ap.add_argument("--include-unconfirmed", action="store_true", help="also take unconfirmed event clips (stage 2)")
+    ap.add_argument("--include-unconfirmed-tags", default="",
+                    help="stage 2: unconfirmed event clips of these tags only, e.g. 'cry' (listening check 2026-11-01)")
+    ap.add_argument("--narration-styles", default="",
+                    help="stage 2: narration_styles.jsonl ({id, style, source}) as a further style source")
+    ap.add_argument("--styles-exclude", default="", help="stage 2: styles never written, e.g. ones the base model does")
+    ap.add_argument("--tags-exclude", default="", help="stage 2: event tags never written")
+    ap.add_argument("--plain-rows", default="tier", choices=("tier", "none"),
+                    help="stage 2: 'none' drops corpus rows without a written label from train and val")
+    ap.add_argument("--labelled-ref-ratio", type=float, default=None,
+                    help="stage 2: share of labelled rows given a plain same-speaker reference (default: usual pairing)")
+    ap.add_argument("--anchor-dir", default="", help="stage 2: folder of base-model clips (<id>.wav + <id>.txt)")
+    ap.add_argument("--anchor-share", type=float, default=0.5, help="anchor rows as a share of the final train")
+    ap.add_argument("--anchor-ref", default="data/eval/refs/ref_male_b.wav", help="ref_audio of every anchor row")
     ap.add_argument("--min-style", type=int, default=50, help="clips a style needs in the slice to be written as a prefix")
     ap.add_argument("--min-tag", type=int, default=300, help="instances an event tag needs in the slice to be written")
     ap.add_argument("--label-repeat", type=int, default=3, help="stage 2: labelled rows repeated this many times")
@@ -181,13 +194,15 @@ def main() -> int:
     units = rows  # kept so an event row whose tag is not written can hand its place back to its base clip
     events_root = Path(a.events_root) if a.events_root and a.stage >= 2 else None
     events = []
+    unconfirmed = True if a.include_unconfirmed else (
+        {t.strip() for t in a.include_unconfirmed_tags.split(",") if t.strip()} or False)
     if events_root and (events_root / "metadata.jsonl").exists():
         if not (events_root / "quality.jsonl").exists():
             raise SystemExit(f"{events_root / 'quality.jsonl'} missing: run scripts/audit_quality.py --root {events_root}")
         quality.update({q["id"]: q for q in load_jsonl(events_root / "quality.jsonl")})
         events = with_wavs(load_jsonl(events_root / "metadata.jsonl"), events_root / a.events_wavs, "event clips")
         rows = combine_events(rows, events, quality, evidence=set(a.event_evidence.split(",")),
-                              include_unconfirmed=a.include_unconfirmed, **tier_kw)
+                              include_unconfirmed=unconfirmed, **tier_kw)
     elif a.stage >= 2:
         print("[warn] no event-extended clips (run ttsdata extend-events + verify-events, or pass --events-root)")
     rows = stage_filter(rows, soundtags, a.stage)
@@ -207,11 +222,17 @@ def main() -> int:
             raise SystemExit("--auto-styles needs emotions.jsonl: run ttsdata emotions first")
         auto = auto_styles(em_rows, a.auto_min_conf, per_class)
         print(f"auto styles: {len(auto)} clips above confidence ({a.auto_min_conf}{', ' + a.auto_conf if a.auto_conf else ''})")
+    narr: dict[str, list[str]] = defaultdict(list)
+    if a.stage >= 2 and a.narration_styles:
+        for r in load_jsonl(Path(a.narration_styles)):
+            if r.get("style") in STYLE_PREFIX and r["style"] not in narr[r["id"]]:
+                narr[r["id"]].append(r["style"])
+        print(f"narration styles: {len(narr)} clips from {a.narration_styles}")
 
     def tags_of(r):
         key = r.get("base") or r["id"]
         t = (soundtags or {}).get(key)
-        extra = auto.get(key, [])
+        extra = auto.get(key, []) + narr.get(key, [])
         if not extra:
             return t
         merged = dict(t) if t else {"style": [], "flags": [], "events": []}
@@ -245,7 +266,9 @@ def main() -> int:
     tags_seen = [r["tag"] for r in slice_rows if r["root"] == "dataset_events"]
     tags_seen += [e["tag"] for r in slice_rows if r["root"] == "dataset_long" for e in (tags_of(r) or {}).get("events", [])
                   if (e.get("where") or "").startswith("gap:") and e.get("who_match") is not False]
-    styles_ok, events_ok = allowed_labels(styles_seen, tags_seen, a.min_style, a.min_tag) if a.stage >= 2 else (set(), set())
+    exclude = frozenset(x.strip() for x in f"{a.styles_exclude},{a.tags_exclude}".split(",") if x.strip())
+    styles_ok, events_ok = (allowed_labels(styles_seen, tags_seen, a.min_style, a.min_tag, exclude=exclude)
+                            if a.stage >= 2 else (set(), set()))
     if a.stage >= 2:  # an event clip whose tag is not written would carry an untagged sound: back to its base
         slice_rows = restore_bases(slice_rows, events_ok, units, quality, **tier_kw)
     # reference pairs are drawn after the slice is final, so no row points at a clip that left it
@@ -254,6 +277,26 @@ def main() -> int:
     pairs = {**pair_references(train_rows, a.ref_ratio, a.seed), **pair_references(val_rows, a.ref_ratio, a.seed)}
     by_id = {r["id"]: r for r in slice_rows}
 
+    def text_of(r):  # training text: the tagged text of an event clip, labels written in stage 2
+        text = r["normalized_text_tagged"] if r["root"] == "dataset_events" else r["normalized_text"]
+        return labelled_text(text, tags_of(r), styles_ok, events_ok) if a.stage >= 2 else text
+
+    is_plain = lambda r: r["root"] != "dataset_events" and text_of(r) == r["normalized_text"]  # noqa: E731
+    n_neutral_ref = 0
+    if a.stage >= 2 and a.labelled_ref_ratio is not None:
+        # labelled rows take a plain reference of the same speaker from the whole tier (same split), so the
+        # reference's delivery never explains the style; plain rows keep the usual pairs
+        for split_rows, in_split in ((train_rows, lambda r: r.get("split") != "val"),
+                                     (val_rows, lambda r: r.get("split") == "val")):
+            lab = [r for r in split_rows if not is_plain(r)]
+            for r in lab:
+                pairs.pop(r["id"], None)
+            neutral = pair_neutral_refs(lab, [r for r in tier if in_split(r)], is_plain, a.labelled_ref_ratio, a.seed)
+            pairs.update(neutral)
+            n_neutral_ref += len(neutral)
+        ref_ids = set(pairs.values())
+        by_id.update({r["id"]: r for r in tier if r["id"] in ref_ids})
+
     gender_of = {}
     if a.speaker_gender:
         gender_of = {g["speaker_id"]: g["gender"] for g in load_jsonl(Path(a.speaker_gender)) if g.get("gender")}
@@ -261,11 +304,14 @@ def main() -> int:
     n_desc = Counter()
     train, val = [], []
     n_labelled = 0
+    n_plain_dropped = 0
     for r in slice_rows:
         ref = by_id.get(pairs.get(r["id"]))
-        text = r["normalized_text_tagged"] if r["root"] == "dataset_events" else r["normalized_text"]
-        text = labelled_text(text, tags_of(r), styles_ok, events_ok) if a.stage >= 2 else text
+        text = text_of(r)
         labelled = text != r["normalized_text"]  # labels and tags only; a voice description is not a label
+        if a.stage >= 2 and a.plain_rows == "none" and not labelled:
+            n_plain_dropped += 1
+            continue
         g = gender_of.get(r.get("speaker_id"))
         if ref is None and g and desc_rng.random() < a.voice_desc_share:
             described = describe(text, g, DESCRIPTIONS[a.voice_desc_lang])
@@ -288,23 +334,25 @@ def main() -> int:
     replay_rows = []
     rdir = Path(a.replay_dir)
     if a.replay_share > 0 and rdir.exists():
-        rng = random.Random(a.seed)
-        files = sorted(rdir.glob("*.wav"))
         want = round(a.replay_share / (1 - a.replay_share) * len(train))
-        rng.shuffle(files)
-        skipped = 0
-        for p in files:
-            if len(replay_rows) >= want:
-                break
-            txt = p.with_suffix(".txt")
-            text = replay_text(txt.read_text(encoding="utf-8")) if txt.exists() else None
-            if text is None:  # digits, foreign words, markup: not readable as written
-                skipped += 1
-                continue
-            replay_rows.append({"audio": f"{os.path.relpath(rdir, out)}/{p.name}", "text": text,
-                                "duration": round(sf.info(p).duration, 3), "dataset_id": 1})
+        replay_rows, skipped = folder_rows(rdir, out, want, dataset_id=1, seed=a.seed)
         print(f"replay: {len(replay_rows)} rows from {rdir} ({skipped} clips skipped: unreadable text)")
         train += replay_rows
+
+    # stage 2 anchors: plain sentences spoken by the base model itself (stage 1 inference setting, clip B), so the
+    # adapter has nothing to learn on plain text; every row carries clip B as its reference
+    anchor_rows = []
+    if a.anchor_dir:
+        adir, aref = Path(a.anchor_dir), Path(a.anchor_ref)
+        if not adir.exists() or not aref.exists():
+            raise SystemExit(f"--anchor-dir {adir} / --anchor-ref {aref} missing")
+        want = round(a.anchor_share / (1 - a.anchor_share) * len(train))
+        anchor_rows, skipped = folder_rows(adir, out, want, dataset_id=2, seed=a.seed,
+                                           ref=(os.path.relpath(aref, out), round(sf.info(aref).duration, 3)))
+        print(f"anchors: {len(anchor_rows)} of {want} wanted from {adir} ({skipped} clips skipped: unreadable text)")
+        if len(anchor_rows) < want:
+            print(f"[warn] only {len(anchor_rows)} anchor clips for {want} wanted: synthesise more")
+        train += anchor_rows
 
     for d in train + val:
         errs = validate_row(d)
@@ -379,6 +427,19 @@ def main() -> int:
     if a.speaker_gender:
         lines += ["", f"- voice descriptions ({a.voice_desc_lang}, share {a.voice_desc_share} of rows without ref_audio): "
                   f"{n_desc['male']} male, {n_desc['female']} female; {len(gender_of)} labelled speakers"]
+    if a.stage >= 2:
+        n_auto = sum(1 for r in slice_rows if auto.get(r.get("base") or r["id"]))
+        n_narr = sum(1 for r in slice_rows if narr.get(r.get("base") or r["id"]))
+        n_both = sum(1 for r in slice_rows if auto.get(r.get("base") or r["id"]) and narr.get(r.get("base") or r["id"]))
+        lines += ["", f"- style sources in the slice: automatic {n_auto}, narration {n_narr}, both {n_both}"
+                  + (f"; excluded labels: {', '.join(sorted(exclude))}" if exclude else ""),
+                  f"- unconfirmed event clips accepted: "
+                  f"{'all tags' if unconfirmed is True else (', '.join(sorted(unconfirmed)) if unconfirmed else 'none')}",
+                  f"- plain rows: {a.plain_rows} ({n_plain_dropped} corpus rows without a written label dropped)",
+                  f"- labelled rows with a plain same-speaker reference: {n_neutral_ref}"
+                  + (f" (ratio {a.labelled_ref_ratio})" if a.labelled_ref_ratio is not None else " (usual pairing)"),
+                  f"- anchor rows (dataset_id 2, ref {a.anchor_ref}): {len(anchor_rows)} "
+                  f"({len(anchor_rows) / max(1, len(train)):.0%} of train)" if a.anchor_dir else "- anchor rows: none"]
     lines += ["", f"- rows with ref_audio: {n_ref} ({n_ref / max(1, len(slice_rows)):.0%} of corpus rows)",
               f"- replay rows (dataset_id 1): {len(replay_rows)} ({len(replay_rows) / max(1, len(train)):.0%} of train)",
               f"- train {len(train)} / val {len(val)}; held-out eval sentences: {min(a.heldout, len(held))}",
