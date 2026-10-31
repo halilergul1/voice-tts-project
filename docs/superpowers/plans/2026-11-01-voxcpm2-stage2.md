@@ -46,6 +46,7 @@ Order of operations:
 3. **Manifest options** (Task 3, Mac): labelled rows only, neutral references for labelled rows, anchor rows from a folder, unconfirmed event clips per tag.
 3A. **Label-first cleaning** (Task 3A, GPU ~10 h): separate + Sidon every emotion-labelled clip, separate every usable event clip.
 3B. **Narrator emotion labels** (Task 3B, GPU pilot then ~3–5 h): transcribe the narrator, link "X sinirle..." to X's lines, calibrate by ear.
+3C. **Event clip clean-up** (Task 3C, CPU): drop event clips where the narrator talks over the sound or the sound belongs to another person than the speaker; second cry check by ear.
 4. **Base probe** (Task 4, GPU ~1 h): styles and tags with the untrained model in four prompt / clip setups. Decision: which labels the LoRA trains, and which inference setup styled sentences use.
 5. **Data** (Task 5, GPU): check Sidon keeps the styles; synthesise the anchor set; rebuild `data/voxcpm_stage2`.
 6. **Train and score** (Task 6, GPU): run 2a, LM-only, fresh from base; score checkpoints; sweep `--lora-scale`.
@@ -415,6 +416,60 @@ Decision per class and source: narrator alone, narrator + emotion2vec+ ≥ 0.5, 
 
 ---
 
+### Task 3C: Event clips: same person, no narrator
+
+Cry check 1 (2026-11-01, `data/listening_sample/stage2_cry_check.html`): the user heard crying in 20 of 21 rated unconfirmed clips and 3 of 3 rated verified ones, so unconfirmed cries go in. The user also heard two faults that would teach `[ağlama]` the wrong sound: in some clips the cry belongs to another person than the one speaking the line (dialogue scene), and in some the female audio-description narrator talks over the moment. Both apply to laughs and breaths too. This task flags them for every event clip.
+
+**Files:**
+- Create: `ttsdata/eventclean.py` (pure checks)
+- Create: `scripts/check_events.py` (CPU: F0 per extension, writes `data/dataset_events/event_checks.jsonl`)
+- Modify: `scripts/make_voxcpm_manifest.py` (`--event-checks FILE`: flagged event clips leave; their base clip returns as for an unwritten tag, via `restore_bases`)
+- Test: `tests/test_eventclean.py`
+
+**Interfaces:**
+- Consumes: event rows (`event: {start, end, who}`, `uid`, `speaker_id`, `series`), Task 3B `narration.jsonl` spans and `name_clusters`, `data/dataset/speaker_gender.jsonl`, `ttsdata.voicegender.clip_f0`.
+- Produces:
+  - `narrator_overlap(event: dict, spans: list[tuple[float, float]], min_sec: float = 0.3) -> bool`: the extension (`event.start`–`event.end`, episode time) overlaps transcribed narrator speech by ≥ `min_sec`.
+  - `who_conflict(who: str | None, series: str, line_speaker: str, clusters: dict[tuple[str, str], str]) -> bool`: the subtitle names the sound's maker and that name maps to another cluster than the line's speaker. Unknown names never conflict.
+  - `pitch_conflict(ext_f0: float | None, line_gender: str | None, male_line_max: float = 260.0, female_line_min: float = 140.0) -> bool`: male line with an extension median F0 ≥ 260 Hz, or female line with ≤ 140 Hz (crying raises pitch, so the bars sit well outside `voicegender`'s 150 / 175 Hz).
+  - `event_checks.jsonl` rows `{id, narrator, who_conflict, pitch_conflict, ext_f0}`; a row is flagged when any check is true.
+
+- [ ] **Step 1: Write the failing tests** (`tests/test_eventclean.py`)
+
+```python
+from ttsdata.eventclean import narrator_overlap, who_conflict, pitch_conflict
+
+def test_narrator_overlap():
+    ev = {"start": 100.0, "end": 102.0}
+    assert narrator_overlap(ev, [(101.5, 104.0)])
+    assert not narrator_overlap(ev, [(101.9, 104.0)])       # 0.1 s: a breath of overlap, not speech over the cry
+    assert not narrator_overlap(ev, [])
+
+def test_who_conflict():
+    cl = {("S", "Afra"): "S_spk3"}
+    assert who_conflict("Afra", "S", "S_spk7", cl)
+    assert not who_conflict("Afra", "S", "S_spk3", cl)
+    assert not who_conflict("Kerem", "S", "S_spk7", cl)      # name not mapped: no evidence either way
+    assert not who_conflict(None, "S", "S_spk7", cl)
+
+def test_pitch_conflict():
+    assert pitch_conflict(300.0, "male") and pitch_conflict(120.0, "female")
+    assert not pitch_conflict(230.0, "male")                 # a man crying can sound high
+    assert not pitch_conflict(None, "male") and not pitch_conflict(300.0, None)
+```
+
+- [ ] **Step 2: Run, implement, run again**
+
+Run: `.venv/bin/python -m pytest tests/test_eventclean.py -v` (FAIL `ModuleNotFoundError`, then 3 PASS); add a manifest test that a flagged event clip hands its place back to its base.
+
+- [ ] **Step 3: Run `scripts/check_events.py`** on astrobot after Task 3B Step 4 (CPU; F0 on the extension part of each event clip's `wavs_clean` audio). Expected: counts flagged per check and per tag in `stage2_results.md`.
+
+- [ ] **Step 4: Cry check 2** (blind page, one-off builder like `data/cry_page.py` or `blind_page.py style`): 30 cry clips that pass the checks + 10 flagged ones, mixed; answers "same person crying / another person crying / narrator talks / nothing". Gate (my call): among passing clips ≥ 24 of 30 "same person crying" and ≤ 1 "narrator talks". If it fails, tighten the bars (`min_sec`, F0) once and re-check; a second failure leaves `[ağlama]` out of run 2a.
+
+- [ ] **Step 5: Commit** `ttsdata/eventclean.py`, `scripts/check_events.py`, the manifest change and tests.
+
+---
+
 ### Task 4: Base-model probe (GPU, ~1 h, ask first)
 
 What does untrained VoxCPM2 already do? Each style and tag is tried in four setups, all with clip B's voice and cfg 3.0:
@@ -499,13 +554,14 @@ cd ~/voice-data && mv data/voxcpm_stage2 data/voxcpm_stage2_prev
 ~/tts/venv-voxcpm/bin/python scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 \
   --wavs wavs_sidon --long-wavs wavs_sidon --restored-only --events-wavs wavs_clean \
   --auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99 --min-tag 150 \
-  [--narration-styles data/dataset/narration_styles.jsonl] [--include-unconfirmed-tags cry if the cry check passed] \
+  [--narration-styles data/dataset/narration_styles.jsonl] --include-unconfirmed-tags cry \
+  --event-checks data/dataset_events/event_checks.jsonl \
   --plain-rows none --labelled-ref-ratio 0.8 --label-first --label-quota 6000 --label-max-share 1.0 \
   --label-repeat 1 --replay-share 0 --max-hours 80 --anchor-share 0 [--styles-exclude/--tags-exclude from Task 4]
 ```
 Expected: `tier_report.md` lists per label the clips in tier, in slice and written; each style at its 6,000 quota (≈ 7–9 h), labelled train rows ≈ 20k–24k; every train row labelled; no FLEURS rows. Write the label table into `stage2_results.md`. Quota 6,000 keeps the styles balanced and the anchor synthesis near a night's work; raise it in a later run only if a style misses its gate narrowly. If `--restored-only` leaves any style under 3,000 clips, stop and ask the user.
 
-Unconfirmed cries: the user's blind check (`data/listening_sample/stage2_cry_check.html`, 30 unconfirmed + 8 verified, key in `.key.json` beside it) decides. `--include-unconfirmed-tags cry` when ≥ 24 of 30 unconfirmed clips are heard as crying (0.8, my call); otherwise they stay out.
+Unconfirmed cries are in: cry check 1 heard crying in 20 of 21 rated unconfirmed clips (bar 0.8). Event clips flagged by Task 3C (another person's cry, narrator over the sound) are out for every tag.
 
 - [ ] **Step 4: Does Sidon keep the style?** (GPU, ~15 min, ask first)
 

@@ -1,0 +1,316 @@
+{
+ "page": "data/listening_sample/stage2_cry_check.html",
+ "date": "2026-11-01",
+ "rater": "user (native listener)",
+ "note": "'-' = not rated. Listener: real cries; in some clips the cry belongs to another person than the speaker; in some the audio-description narrator talks over the moment.",
+ "result": {
+  "unconfirmed": "20 cry / 1 none / 9 unrated",
+  "verified": "3 cry / 5 unrated"
+ },
+ "items": [
+  {
+   "n": 1,
+   "id": "Sj5vhnLGKHc_00166_cry",
+   "group": "unconfirmed",
+   "series": "Zeyrek İle Çeyrek",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 2,
+   "id": "1hEfO60X3i8_00263_cry_end",
+   "group": "unconfirmed",
+   "series": "Adını Sen Koy",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 3,
+   "id": "3hzUcgHSiqo_00943_cry",
+   "group": "unconfirmed",
+   "series": "Yalaza",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 4,
+   "id": "W263ryKMPH0_00514_cry_end",
+   "group": "unconfirmed",
+   "series": "Filinta",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 5,
+   "id": "HeXezF4VrJ8_00111_cry",
+   "group": "unconfirmed",
+   "series": "Filinta",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 6,
+   "id": "UKVile_HpwQ_01068_cry",
+   "group": "unconfirmed",
+   "series": "Yalaza",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 7,
+   "id": "30XnQKyzZAU_01334_cry",
+   "group": "unconfirmed",
+   "series": "Beni Böyle Sev",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 8,
+   "id": "j6rRVFTAsGc_00955_x2_cry",
+   "group": "unconfirmed",
+   "series": "Beni Böyle Sev",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 9,
+   "id": "mpg2dM5DrGg_01136_cry",
+   "group": "unconfirmed",
+   "series": "Hangimiz Sevmedik",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 10,
+   "id": "NicxDj7joFo_00024_cry",
+   "group": "unconfirmed",
+   "series": "Adını Sen Koy",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 11,
+   "id": "iTHEoBSLxxU_00159_cry",
+   "group": "unconfirmed",
+   "series": "Yunus Emre",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 12,
+   "id": "1ik1a0IEYZc_00313_cry",
+   "group": "confirmed",
+   "series": "Yunus Emre",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 13,
+   "id": "x-37wVQTgs4_00029_cry",
+   "group": "confirmed",
+   "series": "Filinta",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 14,
+   "id": "EFEFEcYl9es_02345_cry",
+   "group": "unconfirmed",
+   "series": "Kalk Gidelim",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 15,
+   "id": "EvSVykyXNGE_02216_x2_cry",
+   "group": "unconfirmed",
+   "series": "Kalk Gidelim",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 16,
+   "id": "KYGdyOPltx4_01917_cry",
+   "group": "unconfirmed",
+   "series": "Seksenler",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 17,
+   "id": "ta0mTE5AUSM_01874_cry",
+   "group": "unconfirmed",
+   "series": "Beni Böyle Sev",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 18,
+   "id": "xg7ZaRa81Ok_00008_cry",
+   "group": "unconfirmed",
+   "series": "Adını Sen Koy",
+   "edge": "start",
+   "answer": "none"
+  },
+  {
+   "n": 19,
+   "id": "nm4QvLpCLY0_00065_x3_cry",
+   "group": "unconfirmed",
+   "series": "Seksenler",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 20,
+   "id": "fStOVNK7tuo_00520_cry",
+   "group": "unconfirmed",
+   "series": "Adını Sen Koy",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 21,
+   "id": "mKEWBX01-2g_00675_cry",
+   "group": "unconfirmed",
+   "series": "Hangimiz Sevmedik",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 22,
+   "id": "jwYlYq6oGIU_01600_cry",
+   "group": "unconfirmed",
+   "series": "Seksenler",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 23,
+   "id": "WyHI8VAPJzw_00683_cry_end",
+   "group": "unconfirmed",
+   "series": "Kalk Gidelim",
+   "edge": "end",
+   "answer": "-"
+  },
+  {
+   "n": 24,
+   "id": "GyfRJ6E-wfI_00905_cry",
+   "group": "confirmed",
+   "series": "Zengin Kız Fakir Oğlan",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 25,
+   "id": "0EfFu9fB7fk_01321_cry",
+   "group": "unconfirmed",
+   "series": "Zengin Kız Fakir Oğlan",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 26,
+   "id": "_JDO9FKXZ88_01516_cry",
+   "group": "unconfirmed",
+   "series": "Elimi Bırakma",
+   "edge": "end",
+   "answer": "cry"
+  },
+  {
+   "n": 27,
+   "id": "HhvG0R4XiLM_00169_cry",
+   "group": "confirmed",
+   "series": "Beni Böyle Sev",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 28,
+   "id": "CxPUA_vyFLg_00083_cry",
+   "group": "unconfirmed",
+   "series": "Payitaht Abdülhamid",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 29,
+   "id": "WyHI8VAPJzw_00301_cry",
+   "group": "unconfirmed",
+   "series": "Kalk Gidelim",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 30,
+   "id": "g81mNCrBnO4_00332_cry",
+   "group": "unconfirmed",
+   "series": "Elimi Bırakma",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 31,
+   "id": "XzTxNFks8Kg_01008_cry",
+   "group": "unconfirmed",
+   "series": "Yalaza",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 32,
+   "id": "_QQxPWz0YTo_00572_cry",
+   "group": "confirmed",
+   "series": "Filinta",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 33,
+   "id": "Oz7FkuxsmJU_00175_cry",
+   "group": "confirmed",
+   "series": "Filinta",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 34,
+   "id": "Uap1SAA11vQ_00256_x2_cry",
+   "group": "unconfirmed",
+   "series": "Filinta",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 35,
+   "id": "OeHxe75lMNE_02044_cry",
+   "group": "confirmed",
+   "series": "Kalk Gidelim",
+   "edge": "start",
+   "answer": "-"
+  },
+  {
+   "n": 36,
+   "id": "4YYK06wV52w_02621_x3_cry",
+   "group": "confirmed",
+   "series": "Seksenler",
+   "edge": "start",
+   "answer": "cry"
+  },
+  {
+   "n": 37,
+   "id": "yXn_qOUlpio_00620_cry",
+   "group": "unconfirmed",
+   "series": "Filinta",
+   "edge": "end",
+   "answer": "-"
+  },
+  {
+   "n": 38,
+   "id": "0R2LivDo2wQ_02381_cry",
+   "group": "unconfirmed",
+   "series": "Hangimiz Sevmedik",
+   "edge": "end",
+   "answer": "-"
+  }
+ ]
+}
