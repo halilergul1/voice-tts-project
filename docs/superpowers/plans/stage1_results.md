@@ -1,16 +1,18 @@
 # Stage 1 results (2026-10-29, astrobot RTX 5090)
 
-**Closed 2026-10-31.** Passed with run 4 (`~/tts/checkpoints/stage1_v4/step_0002629`): blind preference 16/20 over
-Trendyol-TTS, UTMOS p10 and voice consistency above zero-shot; Freya WER 1.1% vs Trendyol 0.4% misses its gate by
-0.2 pt (3 of 7 error sentences are ASR spelling), accepted by the listener. Inference setting: adapter on the language
-model only (`--lora-scale 1,0`), continue from and clone `data/eval/refs/ref_male_b.wav`, cfg 3.0, no voice-design
-prompt. Lessons for stage 2:
-- Train clean clips only (run 4); the cloned clip sets voice quality (a husky clip gives a husky voice).
-- The DiT (acoustic decoder) half of the LoRA adds robotic bits on some words, likely learnt from the Sidon-restored
-  training audio; the language-model half carries the word and prosody gain. Consider `enable_dit: false`.
-- Longer training on the same data does not help clearness. Only ~47 h of unique audio has been Sidon-restored so
-  far: separation and Sidon ran only on the clips of the 60 h slices, while the strict tier holds 348 h. More
-  restored hours are possible by cleaning more of the strict tier.
+**Closed 2026-11-01.** Best stage 1 system: **untrained VoxCPM2** continuing from and cloning
+`data/eval/refs/ref_male_b.wav`, cfg 3.0, no voice-design prompt. Blind round 6 vs Trendyol-TTS: 18 / 0 / same 2
+(gate >= 12 of 20). The LoRA does not add anything audible on top of that setting: round 5 put run 5a (LM-only
+LoRA, 85 h) against the untrained model with the same setting and the listener preferred untrained 9 to 2 (9 same).
+Run 4 with only its language-model half (`--lora-scale 1,0`) won 16/20 vs Trendyol in round 4, but that win came
+from the setting. Lessons for stage 2:
+- The setting carries the quality: a clear clip (a husky clip gives a husky voice), continuation, guidance 3.0.
+- Training on our audio (Sidon-restored TV drama) pulls the base model down towards it. The DiT half of the LoRA
+  adds robotic bits; the language-model half alone is neutral at best. Number gains (a few words in 1000, less
+  high-voice drift) were not audible.
+- Stage 2 has to teach what the base model cannot do (styles, sound tags) while keeping its sound: train the
+  language-model part only, and gate every run with a blind round against the untrained model with this setting.
+- Restored clips passing the tier: 85.5 h; `scripts/server_more_clean.sh` cleans more (run 5b slice, 160 h raw).
 
 Run: `scripts/train_stage1.sh` with `training/voxcpm/stage1_prosody_lora.yaml` (LoRA r64/a64 on LM + DiT, lr 1e-4,
 batch 4 × grad accum 4, 2626 steps = 1 epoch of the 60 h clean-wav slice; 23:50 → 00:19, ~0.67 s/step, peak ~28 GB).
@@ -641,3 +643,8 @@ its place, since the base model cannot do those.
 - Blind round 6 page: `data/listening_sample/stage1_ab_blind6.html` (builder `data/ab_page6.py` on astrobot):
   untrained VoxCPM2 with clip B continue + clone, cfg 3.0 (`s0_voxcpm2_contB_r6`) vs Trendyol on Freya 100-119
   (`data/eval/r6_sentences.txt`), unused in rounds 1-5. The page calls our side "our best setting so far".
+
+### Round 6 blind result (2026-11-01)
+
+Untrained VoxCPM2 + clip B (continue + clone, cfg 3.0) vs Trendyol-TTS, Freya 100-119: ours 18 / Trendyol 0 /
+same 2. Stage 1 closes with this setting and no adapter (see the top of this file).
