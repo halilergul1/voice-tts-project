@@ -1,0 +1,39 @@
+# Stage 1 run 5a: language-model-only LoRA (enable_dit false) on every Sidon-restored clip that passes the tier.
+# Run 4 (stage1_prosody_lora.yaml) won the blind test with only its language-model half switched on at inference
+# (eval_tts.py --lora-scale 1,0); its DiT half added robotic bits. Data: data/voxcpm_v5a = make_voxcpm_manifest.py
+# --stage 1 --out data/voxcpm_v5a --wavs wavs_sidon --long-wavs wavs_sidon --events-wavs wavs_clean --max-hours 100
+# --restored-only --replay-dir data/fleurs_tr_sidon --speaker-gender data/dataset/speaker_gender.jsonl
+# --voice-desc-lang en: 85.55 h (run 4: 60 h of the same pool), train 59,131 / val 1,158.
+# num_iters = max_steps = ceil(59131 / 16) = 3696 (one epoch). Everything else as run 4.
+pretrained_path: /home/ibrahim/tts/models/VoxCPM2
+train_manifest: /home/ibrahim/voice-data/data/voxcpm_v5a/train.jsonl
+val_manifest: /home/ibrahim/voice-data/data/voxcpm_v5a/val.jsonl
+sample_rate: 16000        # AudioVAE encoder input rate; must match audio_vae_config.sample_rate
+out_sample_rate: 48000    # AudioVAE decoder output rate; used for TensorBoard audio logging
+batch_size: 4
+grad_accum_steps: 4  # effective batch 16, as run 4
+num_workers: 4
+preprocessing_num_workers: 8
+num_iters: 3696
+log_interval: 10
+valid_interval: 250
+save_interval: 250
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 100
+max_steps: 3696
+max_batch_tokens: 8192
+max_grad_norm: 1.0
+save_path: /home/ibrahim/tts/checkpoints/stage1_v5a
+tensorboard: /home/ibrahim/tts/logs/stage1_v5a
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+
+lora:
+  enable_lm: true
+  enable_dit: false
+  enable_proj: false
+  r: 64
+  alpha: 64
+  dropout: 0.0
