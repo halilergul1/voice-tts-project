@@ -508,3 +508,28 @@ Robotic-bit probes, clip B, 40 Freya sentences (no metric measures the robotic b
 - What training adds: fewer word errors (Freya 0.5% vs untrained 1.1% with clip B). The adapter sits on both the
   language model and the acoustic decoder (DiT), `r 64 / alpha 64` (scaling 1.0), so the plan's retry setting
   (`r 64, alpha 128`) would only double the adapter's strength.
+
+### Adapter strength per part at inference (2026-10-31)
+
+`eval_tts.py --lora-scale LM,DIT` sets each LoRA layer's scaling buffer after loading: the language-model part
+(`base_lm` / `residual_lm`, 144 layers) and the acoustic decoder (`feat_decoder`, the DiT, 48 layers); 1 = as trained,
+0 = off. Sanity: `1,1` reproduces the default run sample for sample; `0,0` adds exactly zero, but float rounding sends
+sampling down another path, so it matches the untrained model only statistically.
+
+Clip B, continue + clone, cfg 3.0, run 4 end, 40 Freya sentences (~400 words, so 0.2% WER is about one word):
+
+| adapter | WER | PESQ (p10) | UTMOS (p10) | female-range | consistency | CPPS | syl/s |
+|---|---|---|---|---|---|---|---|
+| Trendyol-TTS | 0.3% | 3.89 (3.56) | 3.04 (2.82) | 0% | 0.79 | 10.18 | 6.48 |
+| off (untrained) | 1.1% | 4.24 (4.10) | 3.07 (2.77) | 8% | 0.85 | 11.01 | 6.41 |
+| full (1,1) | 0.2% | 4.14 (3.90) | 3.06 (2.83) | 2% | 0.84 | 10.59 | 7.05 |
+| language only (1,0) | 0.8% | 4.22 (3.99) | 3.12 (2.84) | 5% | 0.84 | 10.71 | 7.37 |
+| acoustic only (0,1) | 1.4% | 4.13 (3.98) | 3.10 (2.73) | 10% | 0.84 | 10.54 | 6.27 |
+| half (0.5,0.5) | 0.5% | 4.12 (3.90) | 3.12 (2.64) | 10% | 0.85 | 11.00 | 6.74 |
+
+- The word-error gain and the faster pace both come from the language part: language-only 0.8% / 7.37 syl/s,
+  acoustic-only 1.4% / 6.27 (untrained 1.1% / 6.41).
+- Half strength sits in between on pace (6.74, closest to Trendyol of the trained versions) and is the clearest
+  trained version by CPPS (11.00), but its worst-10% UTMOS is lowest (2.64) and high-voice drift is 10%.
+- Robotic bits are not measured; listening page `data/listening_sample/stage1_adapter_split.html` (same 8 sentences
+  as the robotic-probe page, 5 versions).

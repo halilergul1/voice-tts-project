@@ -22,6 +22,26 @@ def lora_config_from_checkpoint(step_dir: Path, allowed: Iterable[str]) -> dict 
     return {k: v for k, v in cfg.items() if k in allowed}
 
 
+def lora_part(module_name: str) -> str:
+    """Which part of VoxCPM2 a LoRA layer sits in: "lm" (base_lm / residual_lm, text and prosody), "dit" (feat_decoder,
+    the acoustic decoder that makes the sound) or "other" (projection layers)."""
+    if module_name.startswith("feat_decoder"):
+        return "dit"
+    if module_name.startswith(("base_lm", "residual_lm")):
+        return "lm"
+    return "other"
+
+
+def parse_lora_scale(spec: str) -> tuple[float, float]:
+    """--lora-scale "LM,DIT" (e.g. "1,0": language-model part as trained, acoustic part off) or one value for both."""
+    parts = [float(x) for x in spec.split(",")]
+    if len(parts) == 1:
+        return parts[0], parts[0]
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    raise ValueError(f"--lora-scale takes LM,DIT or one value, got {spec!r}")
+
+
 def _mean(scores: list[dict], key: str) -> float | None:
     vals = [s[key] for s in scores if s.get(key) is not None]
     return float(np.mean(vals)) if vals else None

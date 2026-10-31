@@ -1,6 +1,8 @@
 import json
 
-from ttsdata.evalmetrics import lora_config_from_checkpoint, summarize
+import pytest
+
+from ttsdata.evalmetrics import lora_config_from_checkpoint, lora_part, parse_lora_scale, summarize
 
 
 def test_summarize_aggregates_scores():
@@ -37,3 +39,18 @@ def test_lora_config_from_checkpoint_reads_the_trainers_nested_block(tmp_path):
                                                  "target_modules_lm"])
     assert cfg == {"enable_lm": True, "enable_dit": True, "enable_proj": False, "r": 64, "alpha": 64, "dropout": 0.0,
                    "target_modules_lm": ["q_proj"]}
+
+
+def test_lora_part_splits_language_model_and_acoustic_decoder():
+    assert lora_part("base_lm.layers.3.self_attn.q_proj") == "lm"
+    assert lora_part("residual_lm.layers.0.self_attn.o_proj") == "lm"
+    assert lora_part("feat_decoder.estimator.decoder.layers.1.self_attn.k_proj") == "dit"
+    assert lora_part("feat_decoder.estimator._orig_mod.decoder.layers.1.self_attn.v_proj") == "dit"  # torch.compile
+    assert lora_part("enc_to_lm_proj") == "other"
+
+
+def test_parse_lora_scale():
+    assert parse_lora_scale("1,0") == (1.0, 0.0)
+    assert parse_lora_scale("0.5") == (0.5, 0.5)
+    with pytest.raises(ValueError):
+        parse_lora_scale("1,0,1")

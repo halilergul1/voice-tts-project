@@ -6,6 +6,7 @@
   eval_tts.py synth --system trendyol --run s0_trendyol ...
   eval_tts.py synth --system voxcpm2-lora ... --ref-wav clip.wav --prompt ''   # clone the voice of clip.wav
   eval_tts.py synth --system voxcpm2-lora ... --prompt-wav clip.wav --prompt ''   # continue from clip.wav (+ clip.txt)
+  eval_tts.py synth --system voxcpm2-lora ... --lora-scale 1,0   # adapter on the language model only, not the DiT
   eval_tts.py score --run s0_voxcpm2 --sentences data/eval/freya_tr_eval.txt [--utmos 0] [--spk 0]
   eval_tts.py all   ... (synth then score, same flags)
 
@@ -26,7 +27,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.evalmetrics import lora_config_from_checkpoint, summarize  # noqa: E402
+from ttsdata.evalmetrics import lora_config_from_checkpoint, lora_part, parse_lora_scale, summarize  # noqa: E402
 
 EVAL_DIR = Path("data/eval")
 DEFAULT_PROMPT = "(Otuzlu yaşlarında bir erkek, sakin ve doğal bir ses)"
@@ -114,6 +115,19 @@ def _load_voxcpm(system: str, model_dir: str | None, lora: str | None, device: s
     return model
 
 
+def _scale_lora(tts_model, lm: float, dit: float) -> dict:
+    """LoRA strength per part at inference (1 = as trained, 0 = off): language model vs acoustic decoder (DiT).
+    Sets each LoRA layer's scaling buffer in place (no torch.compile recompile). Returns layers per part."""
+    n = {"lm": 0, "dit": 0, "other": 0}
+    for name, m in tts_model.named_modules():
+        if getattr(m, "lora_A", None) is None or not hasattr(m, "scaling"):
+            continue
+        part = lora_part(name)
+        m.scaling.fill_(m._base_scaling * (dit if part == "dit" else lm))
+        n[part] += 1
+    return n
+
+
 def _clip_transcript(wav: str) -> str:
     """Transcript of a prompt clip: the .txt next to it, either plain text or "<clip id>\t<text>"."""
     t = Path(wav).with_suffix(".txt").read_text(encoding="utf-8").strip()
@@ -129,6 +143,14 @@ def cmd_synth(a) -> None:
     wav_dir.mkdir(parents=True, exist_ok=True)
     device = _device(a.device)
     model = _load_voxcpm(a.system, a.model_dir, a.lora, device)
+    lora_scale = parse_lora_scale(a.lora_scale) if a.lora_scale else None
+    if lora_scale:
+        if a.system != "voxcpm2-lora":
+            raise SystemExit("--lora-scale needs --system voxcpm2-lora")
+        n = _scale_lora(model.tts_model, *lora_scale)
+        print(f"LoRA scale lm {lora_scale[0]} ({n['lm']} layers), dit {lora_scale[1]} ({n['dit']} layers), other {n['other']}")
+        if not n["lm"] or not n["dit"]:
+            raise SystemExit(f"LoRA layers not found per part: {n}")
     sr = model.tts_model.sample_rate
     inner = getattr(model, "_generate", model.generate)  # generate() is a *args/**kwargs wrapper around _generate()
     gen_sig = inspect.signature(inner).parameters
@@ -175,7 +197,7 @@ def cmd_synth(a) -> None:
             rows_by_k[k] = row
             write_synth()
             print(f"[{k + 1}/{len(sentences)}] {row['audio_sec']} s audio in {row['gen_sec']} s (rtf {row['rtf']})")
-    (run_dir / "run.json").write_text(json.dumps({"system": a.system, "lora": a.lora, "model_dir": a.model_dir,
+    (run_dir / "run.json").write_text(json.dumps({"system": a.system, "lora": a.lora, "lora_scale": lora_scale, "model_dir": a.model_dir,
                                                   "prompt": prompt, "ref_wav": a.ref_wav, "prompt_wav": a.prompt_wav, "cfg": a.cfg, "steps": a.steps,
                                                   "seed": a.seed, "device": device, "sample_rate": sr, "sentences": a.sentences,
                                                   "n": len(sentences), "date": date.today().isoformat()},
@@ -282,6 +304,8 @@ def main() -> int:
         if name in ("synth", "all"):
             s.add_argument("--system", choices=["voxcpm2", "voxcpm2-lora", "trendyol"], required=True)
             s.add_argument("--lora", default=None)
+            s.add_argument("--lora-scale", default=None,
+                           help="LoRA strength 'LM,DIT' (1 = as trained, 0 = off; e.g. '1,0' keeps the language-model part only) or one value for both")
             s.add_argument("--model-dir", default=None, help="local model folder instead of the HF id")
             s.add_argument("--prompt", default=None, help="voice-design prefix; '' disables; default: Turkish male prompt")
             s.add_argument("--ref-wav", default=None, help="reference clip whose voice VoxCPM2 clones (reference_wav_path)")
