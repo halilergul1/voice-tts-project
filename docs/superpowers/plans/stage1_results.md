@@ -571,3 +571,19 @@ the untrained model and keeps most of the word-error gain. Language only becomes
   version, though: 7.30 syl/s vs Trendyol 6.38 (+14%), full adapter 6.97.
 - Blind round 4 (Trendyol vs language only; Freya 76-87 and corpus 3, 8, ..., 38, unused in rounds 1-3):
   `data/listening_sample/stage1_ab_blind4.html`.
+
+### Round 4 blind result: language-only adapter (2026-10-31)
+
+Ours preferred 16 / Trendyol preferred 4 / same 0 (gate: ours >= 12 of 20). Earlier rounds: 4 (round 1), 6 (round 3).
+
+Exit gate with `--lora-scale 1,0`, clip B, continue + clone, cfg 3.0:
+
+| gate | result | met |
+|---|---|---|
+| blind preference >= 12 / 20 | 16 / 20 | yes |
+| Freya WER within 0.5 pt of Trendyol | 1.1% vs 0.4% (0.7 pt; 3 of 7 error sentences are ASR spelling) | no, by 0.2 pt |
+| UTMOS p10 > zero-shot | 2.75 vs 2.04 | yes |
+| consistency > zero-shot | 0.83 vs 0.46 | yes |
+
+Best stage 1 setting: run 4 end (`step_0002629`), adapter on the language model only, continue from and clone
+`data/eval/refs/ref_male_b.wav`, cfg 3.0, no voice-design prompt.
