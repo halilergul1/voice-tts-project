@@ -625,3 +625,16 @@ Scored with run 4's winning setting minus `--lora-scale` (there is no DiT half):
   sentences unused in rounds 1-4 (Freya 88-99, corpus 4, 9, ..., 39); part 1 run 5a end vs Trendyol, part 2 run 5a end
   vs untrained VoxCPM2 with the same clip and settings (`s0_voxcpm2_contB_r5`, the 20 sentences in
   `data/eval/r5_sentences.txt`).
+
+### Round 5 blind result (2026-11-01)
+
+- Run 5a end vs Trendyol: ours 9 / Trendyol 7 / same 4 (gate >= 12: not met; round 4 with run 4 language only: 16).
+- Run 5a end vs untrained VoxCPM2 with the same clip and settings: ours 2 / untrained 9 / same 9.
+
+The training does not add anything the listener hears: with clip B continue + clone and cfg 3.0, the untrained model
+is preferred or equal on 18 of 20 sentences. The stage 1 gains so far come from the inference setting (a clear male
+clip, continuation, guidance), not from the LoRA; the number gains (word errors, high-voice drift) are a few words in
+1000 and not audible. Likely reason: the training audio (Sidon-restored TV drama) is below the base model's own
+quality, so the adapter can only pull towards it. Open: a blind round of untrained + clip B vs Trendyol to confirm the
+base model with this setting is the best stage 1 system; stage 2 (styles, sound tags) is where training has to earn
+its place, since the base model cannot do those.
