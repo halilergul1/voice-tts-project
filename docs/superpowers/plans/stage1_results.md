@@ -621,3 +621,7 @@ Scored with run 4's winning setting minus `--lora-scale` (there is no DiT half):
   alone brings robotic or thin bits back. Step 2000 drifts to a high voice in 11% of sentences.
 - Listening page: `data/listening_sample/stage1_run5a.html` (8 robotic-probe sentences: untrained, run 4 language
   only, run 5a step 2000, run 5a end). Run 5b (more cleaned audio, `scripts/server_more_clean.sh`) is running.
+- Blind round 5 page: `data/listening_sample/stage1_ab_blind5.html` (builder `data/ab_page5.py` on astrobot). 20
+  sentences unused in rounds 1-4 (Freya 88-99, corpus 4, 9, ..., 39); part 1 run 5a end vs Trendyol, part 2 run 5a end
+  vs untrained VoxCPM2 with the same clip and settings (`s0_voxcpm2_contB_r5`, the 20 sentences in
+  `data/eval/r5_sentences.txt`).
