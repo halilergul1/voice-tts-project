@@ -41,3 +41,26 @@ so `[ağlama]` stays the weakest label.
 run 5b training and scoring) to end, so the two never write the same folders or share the GPU.
 
 After the run: restored-only counts per label (Task 5 Step 3) go here.
+
+## Task 3D: text recovery (2026-11-01)
+
+Why clips miss the tier: of the emotional single clips, the audio gates (music, trailing silence, sound flags) drop
+< 1%; the 3 s minimum drops 45,057 angry / 36,700 happy / 38,107 sad clips, the 5% Whisper-vs-subtitle gate 4,706 /
+11,552 / 5,312. Before the dataset, 124,246 lines (64 h) were rejected for a > 20% mismatch (never scored for
+emotion). The user listened to 20 clips the text check drops (10 at 5–20%, 10 rejected): the subtitle was mostly
+right. Rule: keep the subtitle up to 20%; above, a second recogniser votes (Task 3D in the plan).
+
+Selection with `--max-cer 0.20 --label-min-dur 1.5` (62,078 short labelled lines, 38.1 h, join the tier), before
+cleaning:
+
+| label | before 3D | with 3D steps 1–2 |
+|---|---|---|
+| happy | 29,050 (47.1 h) | 59,235 (76.0 h) |
+| sad | 20,009 (31.7 h) | 46,277 (52.4 h) |
+| angry | 13,775 (19.8 h) | 38,914 (38.0 h) |
+| laugh | 2,135 (3.6 h) | 3,058 (4.9 h) |
+| breath | 468 (0.7 h) | 613 (0.9 h) |
+| cry | 278 (0.5 h) | 383 (0.6 h) |
+
+147,311 labelled clips, 170.8 h. Cough (161 clips) now passes `--min-tag 150`; it is cleaned but not in scope, so
+the stage 2 build passes `--tags-exclude cough`. The `lclean` job uses this selection.
