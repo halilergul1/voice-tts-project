@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Teach the untrained VoxCPM2 three speaking styles (happy / sad / angry) and three sound tags (`[gülme]`, `[nefes]`, `[ağlama]`) with a language-model-only LoRA, without making plain sentences sound any worse than the stage 1 system.
+**Goal:** A model where the user gives any Turkish text plus an emotion (neutral, happy, sad, angry; more if the data allows) and VoxCPM2 speaks that text in that emotion. Built as a language-model-only LoRA that also learns three sound tags (`[gülme]`, `[nefes]`, `[ağlama]`), without making neutral speech any worse than the stage 1 system.
+
+**Product interface (what "done" serves):** `speak(text, emotion)`: `emotion = neutral` → stage 1 setting, no prefix; any other emotion → its Turkish prefix (`(öfkeyle)`, `(neşeyle)`, `(üzgün bir sesle)`, ...) in the styled inference mode Task 4 picks, clip B's voice. The text does not have to fit the emotion ("Saat beşte geliyorum." said angrily), so every style gate is measured on emotion-free sentences first.
 
 **Architecture:** First measure what the base model already does with style words and tags (no training). Then train a fresh LM-only LoRA on a manifest that holds only labelled TV clips plus "anchor" rows: plain sentences spoken by the base model itself with the stage 1 setting, so the adapter has nothing to learn on plain text and stays near the base sound. Every checkpoint is scored for style, tags and plain-sentence quality; a run passes only when a blind round on plain sentences against the untrained model shows it no worse.
 
@@ -19,17 +21,37 @@ Decisions the user made on 2026-11-01:
 2. **Plain rows come from the base model's own outputs** ("anchor rows", Task 5), not from TV clips. On those rows the base model is already right, so the adapter gets no push away from its sound.
 3. **Labels in scope:** happy / sad / angry, `[gülme]`, `[nefes]`, `[ağlama]`. `[ağlama]` has only ~170 clips (below the spec's 300); it is trained and judged by ear, and may fail its gate without failing the stage.
 4. **Regression gate:** a blind round of 20 plain sentences against untrained + clip B; the run fails if the listener prefers the untrained model more often than the adapter (ties are fine).
+5. **Use what Engelsiz gives us** (same day, after the inventory below): clean every labelled clip, not only the stage 1 slices; take the unconfirmed cries if the listening check passes; mine the audio-description narrator for emotion labels.
+
+### Inventory of Engelsiz labels (astrobot, 2026-11-01)
+
+The build holds 936,260 clips (713 h). The stage 2 manifest so far saw only the 108 h that the stage 1 slices had cleaned, so labels were capped by cleaning, not by data:
+
+| label | in the build (≥ 3 s, calibrated cuts; single + merged clips, overlapping) | cleaned (Sidon) so far |
+|---|---|---|
+| angry | ~33 h | 6.8 h |
+| sad | ~47 h | 9.7 h |
+| happy | ~81 h | 11.2 h |
+| cry clips (verified + unconfirmed) | 553 | 205 |
+| laugh clips | 3,982 | 2,099 |
+| breath clips | 850 | 404 |
+
+- Subtitles for the hearing-impaired: 190,527 sound cues; vocal ones laugh 28,767, breath 3,631, cry 2,833, cough 1,298, shout 980, moan 562, scream 475, sigh 404. Speaking-manner cues ("(ağlayarak)", "(fısıldayarak)") are only 85: the subtitles describe sounds, not emotions.
+- Cry funnel: 2,833 cues → 1,156 next to a usable line (2,476 are standalone) → 818 after the Whisper check → 362 verified + 191 unconfirmed (sound without words; no detector can confirm a cry) + 265 with speech in the extension (excluded) → 152 in the current tier.
+- Audio description for blind viewers (TRT, "Sesli Betimleme Derneği"): a narrator speaks between dialogue lines and names characters' emotions ("Ayşe'nin saçlarını okşarken ağlıyor", "Sade Nur sevinçle gülümsedi", "Şivenaz zindanda sinirle dört dönerken"). 40 of 952 sampled narrator snippets carry an emotion word. Never transcribed so far: the pipeline only cut audio where subtitle lines are. Subtitle lines carry a character name on 73,726 clips (8 %), which links a description to a speaker.
 
 Order of operations:
 1. **Scoring code** (Task 1, Mac): label-aware WER, style hit rate with emotion2vec+, laugh detection from Whisper, `--lora-scale` for LM-only adapters.
 2. **Blind page builder** (Task 2, Mac): the A/B page and a new "which style is this?" page, as repo code.
-3. **Manifest options** (Task 3, Mac): labelled rows only, neutral references for labelled rows, anchor rows from a folder.
+3. **Manifest options** (Task 3, Mac): labelled rows only, neutral references for labelled rows, anchor rows from a folder, unconfirmed event clips per tag.
+3A. **Label-first cleaning** (Task 3A, GPU ~10 h): separate + Sidon every emotion-labelled clip, separate every usable event clip.
+3B. **Narrator emotion labels** (Task 3B, GPU pilot then ~3–5 h): transcribe the narrator, link "X sinirle..." to X's lines, calibrate by ear.
 4. **Base probe** (Task 4, GPU ~1 h): styles and tags with the untrained model in four prompt / clip setups. Decision: which labels the LoRA trains, and which inference setup styled sentences use.
 5. **Data** (Task 5, GPU): check Sidon keeps the styles; synthesise the anchor set; rebuild `data/voxcpm_stage2`.
 6. **Train and score** (Task 6, GPU): run 2a, LM-only, fresh from base; score checkpoints; sweep `--lora-scale`.
 7. **Gates** (Task 7): style page, tag page, plain-sentence regression round; results in `docs/superpowers/plans/stage2_results.md`.
 
-Tasks 1–3 are code with unit tests on the Mac. Tasks 4–7 run on astrobot and **each GPU run needs the user's go-ahead first.**
+Tasks 1–3 are code with unit tests on the Mac; Task 3B's parsing code too. Tasks 3A, 3B (transcription) and 4–7 run on astrobot and **each GPU run needs the user's go-ahead first.**
 
 ## Global Constraints
 
@@ -228,6 +250,8 @@ git commit -m "Blind A/B and style-identification pages as repo code"
   - `pair_neutral_refs(targets: list[dict], pool: list[dict], is_plain: Callable[[dict], bool], ratio: float, seed: int) -> dict[str, str]`: for a seeded `ratio` of targets, a ref from `pool` with the same `speaker_id`, `is_plain(ref)` true, ref id ≠ target id, preferring ≥ 3 s and the same non-null `speaker_hint` (same rules as `pair_references`). Targets whose speaker has no plain clip get no ref. The pool is the whole tier, so a ref may be a clip that is not itself a training row.
   - `folder_rows(rdir: Path, out: Path, want: int, dataset_id: int, seed: int, ref: tuple[str, float] | None = None) -> tuple[list[dict], int]`: rows from a folder of `<id>.wav` + `<id>.txt` (text through `replay_text`), paths relative to `out`, `ref` = (path relative to `out`, duration) added as `ref_audio` / `ref_duration`; returns (rows, skipped).
   - `allowed_labels(styles, tags, min_style, min_tag, exclude: frozenset[str] = frozenset())`: names in `exclude` (style or tag keys, e.g. `angry`, `laugh`) are never allowed, so Task 4 can take a label the base model already does out of training.
+  - `combine_events(..., include_unconfirmed: bool | set[str] = False, ...)`: a set names the tags whose `unconfirmed` clips are eligible (`{"cry"}`); `True` keeps today's meaning (all tags). Flag `--include-unconfirmed-tags cry` (the old `--include-unconfirmed` stays).
+  - `--narration-styles FILE` (Task 3B output, `{id, style, source}` rows): a further style source merged in `tags_of` like `--auto-styles`; `tier_report.md` counts labels per source (auto, narration, both).
   - New CLI flags: `--styles-exclude angry,...` and `--tags-exclude laugh,...` (both feed `exclude`), `--plain-rows {tier,none}` (default `tier` = today's behaviour; `none` = corpus rows without a written label leave train and val), `--labelled-ref-ratio 0.8` (stage 2: labelled rows get refs from `pair_neutral_refs`), `--anchor-dir DIR`, `--anchor-share 0.5` (anchor rows as a share of the final train), `--anchor-ref data/eval/refs/ref_male_b.wav`, anchor rows `dataset_id: 2`. `tier_report.md` gains a line per new option (anchor rows, labelled rows with a neutral ref, plain rows dropped).
 
 - [ ] **Step 1: Write the failing tests** (append to `tests/test_manifest.py`, reuse its `R` helper)
@@ -255,6 +279,20 @@ def test_folder_rows_with_ref(tmp_path):
     assert all(validate_row(r) == [] for r in rows)
 ```
 
+and for unconfirmed clips per tag (append to `tests/test_manifest.py`):
+
+```python
+from ttsdata.manifest import combine_events
+
+def test_combine_events_unconfirmed_per_tag():
+    units = [R(0), R(1)]
+    ev = lambda i, tag: {**R(10 + i), "base": f"c{i}", "tag": tag, "verified": False, "detector": {"reason": "unconfirmed"}}
+    events = [ev(0, "cry"), ev(1, "laugh")]
+    q = {r["id"]: Q(int(r["id"][1:])) for r in units + events}
+    out = combine_events(units, events, q, evidence={"clean"}, include_unconfirmed={"cry"})
+    assert sorted(r["id"] for r in out) == ["c1", "c10"]   # the cry clip replaces c0; the laugh clip stays out
+```
+
 and in `tests/test_labels.py`:
 
 ```python
@@ -268,7 +306,7 @@ def test_allowed_labels_exclude():
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `.venv/bin/python -m pytest tests/test_manifest.py tests/test_labels.py -v`
-Expected: the three new tests FAIL (`ImportError`, `TypeError: unexpected keyword 'exclude'`); the old ones PASS.
+Expected: the four new tests FAIL (`ImportError`, `TypeError: unexpected keyword 'exclude'`, the laugh clip let in); the old ones PASS.
 
 - [ ] **Step 3: Implement both functions and the flags**
 
@@ -285,6 +323,95 @@ Expected: `pytest tests/ -q` all PASS; no diff.
 git add ttsdata/manifest.py ttsdata/labels.py scripts/make_voxcpm_manifest.py tests/test_manifest.py tests/test_labels.py
 git commit -m "Stage 2 manifest: labelled rows only, neutral refs for labelled rows, anchor rows from a folder"
 ```
+
+---
+
+### Task 3A: Label-first cleaning (GPU ~10 h, ask first)
+
+Every training clip must be BS-Roformer-separated (speech: then Sidon-restored); so far only clips picked for the stage 1 slices were. This pass cleans the labelled ones.
+
+**Files:**
+- Create: `scripts/server_label_clean.sh` (copy of `scripts/server_more_clean.sh`; markers `data/logs/lclean_<stage>_done`, log `data/logs/lclean.log`; the `label_` prefix is taken by `server_label_stages.sh`)
+
+**Interfaces:**
+- Consumes: Task 3 flags; `scripts/separate_vocals.py`, `cut_context.py`, `sidon_restore.py`, `sidon_wordcheck.py`, `audit_quality.py` exactly as `server_more_clean.sh` calls them.
+- Produces: `wavs_clean` / `wavs_sidon` / `restoration.jsonl` rows for every labelled clip in `data/dataset`, `data/dataset_long`; `wavs_clean` for every verified or unconfirmed event clip and its base in `data/dataset_events`; the selection manifest `data/voxcpm_stage2_rawlabels/`.
+
+- [ ] **Step 1: Write the driver.** The `rawslice` stage becomes a raw-audio stage 2 build that takes labelled clips only:
+
+```bash
+"$PY" scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2_rawlabels --wavs wavs --long-wavs wavs \
+  --events-wavs wavs --auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99 --min-tag 150 \
+  --include-unconfirmed-tags cry,laugh,breath --plain-rows none --label-first --label-quota 1000000 \
+  --label-max-share 1.0 --label-repeat 1 --replay-share 0 --max-hours 400 --max-series-share 1.0
+```
+(unconfirmed laughs and breaths are cleaned too, so a later yes needs no second pass; `--narration-styles` joins when Task 3B has run). Then the same per-root stages as `server_more_clean.sh` for `dataset_long` and `dataset`, plus `sep_dataset_events` (separation only, no Sidon). Every step skips clips already done.
+
+- [ ] **Step 2: Dry run on the Mac** against the local 18 h build with `--max-hours 5`: the stages run end to end on CPU (`SEP_JOBS=1 SIDON_JOBS=1`, Sidon may be skipped locally with a stub note in the log).
+
+- [ ] **Step 3: On astrobot**: wait for `run5b`'s cleaning stages (`data/logs/more_clean_done`, or ask the user to stop its training part), ask the user, then `tmux new -d -s lclean 'scripts/server_label_clean.sh >> data/logs/lclean.log 2>&1'`.
+Expected: `tier_report.md` of `data/voxcpm_stage2_rawlabels` lists the labelled hours per label before cleaning; after the run, a restored-only build (Task 5 Step 3) has ≥ 15 h per style and ≥ 250 cry clips (≥ 300 with the unconfirmed ones). Record both in `stage2_results.md`.
+
+- [ ] **Step 4: Commit** `scripts/server_label_clean.sh`.
+
+---
+
+### Task 3B: Narrator emotion labels (Engelsiz audio description)
+
+The TRT narrator says what characters feel ("Asya üzgün haliyle Ömer'in yanına..."). Linked to that character's next lines, this is a label made by a human describer, independent of emotion2vec, and the only source for crying-while-talking, fear and surprise.
+
+**Files:**
+- Create: `ttsdata/narration.py` (pure: lexicon, parsing, linking)
+- Create: `scripts/transcribe_narration.py` (GPU: Whisper on the gaps between subtitle lines)
+- Create: `scripts/narration_labels.py` (CPU: parse + link → `narration_styles.jsonl`; calibration page via `blind_page.py style`)
+- Test: `tests/test_narration.py`
+
+**Interfaces:**
+- `EMOTION_STEMS: dict[str, tuple[str, ...]]` = angry `("sinir", "öfke", "kızgın", "hiddet", "bağır", "terslen")`, sad `("ağla", "gözyaş", "hüzün", "üzgün", "üzül", "hıçkır", "buruk")`, happy `("gülümse", "gülerek", "gülüyor", "sevin", "neşe", "mutlu", "keyif", "kahkaha")`, scared `("kork", "dehşet", "panik", "ürk")`, surprised `("şaşkın", "şaşır", "hayretle")`. A separate `crying` class for `("ağlıyor", "ağlayarak", "hıçkır")` so crying-while-talking can become its own style if it has the volume.
+- `parse_description(text: str) -> list[dict]`: `{"name": str | None, "emotion": str, "word": str}` per emotion word; `name` = the capitalised word(s) before it in the same clause with the Turkish case suffix after an apostrophe removed ("Ayşe'nin" → "Ayşe"); negated forms (stem + `ma/me` + `dan/den/k/y/dı/di`, e.g. "gülümsemeden", "ağlamamak") yield nothing.
+- `name_clusters(rows: list[dict], min_lines: int = 5, min_share: float = 0.6) -> dict[tuple[str, str], str]`: (series, name) → `speaker_id` when that name's `speaker_hint` lines fall mostly in one cluster.
+- `link_lines(desc: dict, lines: list[dict], cluster: str | None, before: float = 2.0, after: float = 20.0) -> list[str]`: ids of lines of `cluster` that start within [desc end − `before`, desc end + `after`] and before the next description of the same character; with no name, only the first line starting within 5 s (marked `source: "narration_noname"`).
+- `transcribe_narration.py --source trt [--limit-episodes N]`: per episode, gaps ≥ 1.5 s between subtitle cues (`subs.srt`), faster-whisper `deepdml/faster-whisper-large-v3-turbo-ct2`, `language="tr"`, word timestamps, on the original audio; drops `ttsdata.eventverify.HALLUCINATION_RE` matches, "izlediğiniz için teşekkür", "sesli betimleme". Output `data/dataset/narration.jsonl` `{uid, start, end, text}`, resumable per episode.
+- `narration_labels.py` → `data/dataset/narration_styles.jsonl` `{id, style, source, desc, dt}` and `data/dataset/NARRATION.md` (descriptions per emotion, linked lines per emotion, agreement with emotion2vec+ per class).
+
+- [ ] **Step 1: Write the failing tests** (`tests/test_narration.py`)
+
+```python
+from ttsdata.narration import parse_description, name_clusters, link_lines
+
+def test_parse_description():
+    assert parse_description("Şivenaz zindanda sinirle dört dönerken") == [{"name": "Şivenaz", "emotion": "angry", "word": "sinirle"}]
+    assert parse_description("Ayşe'nin saçlarını okşarken ağlıyor.")[0]["name"] == "Ayşe"
+    assert parse_description("Sade Nur sevinçle gülümsedi.")[0] == {"name": "Sade Nur", "emotion": "happy", "word": "sevinçle"}
+    assert parse_description("Ağlamamak için dudağını ısırdı.") == []
+    assert parse_description("Kapıyı açıp içeri girdi.") == []
+
+def test_name_clusters_majority():
+    rows = [{"series": "S", "speaker_hint": "Ayşe", "speaker_id": "S_spk1"}] * 8 + [{"series": "S", "speaker_hint": "Ayşe", "speaker_id": "S_spk2"}] * 2
+    assert name_clusters(rows) == {("S", "Ayşe"): "S_spk1"}
+    assert name_clusters(rows[:4]) == {}                                  # too few named lines
+
+def test_link_lines_window_and_cluster():
+    desc = {"name": "Ayşe", "end": 100.0}
+    lines = [{"id": "a", "start": 99.0, "speaker_id": "S_spk1"}, {"id": "b", "start": 110.0, "speaker_id": "S_spk2"},
+             {"id": "c", "start": 115.0, "speaker_id": "S_spk1"}, {"id": "d", "start": 125.0, "speaker_id": "S_spk1"}]
+    assert link_lines(desc, lines, "S_spk1") == ["a", "c"]
+    assert link_lines({"name": None, "end": 100.0}, lines, None) == []     # no line starts within 5 s after
+```
+
+- [ ] **Step 2: Run, implement `ttsdata/narration.py`, run again**
+
+Run: `.venv/bin/python -m pytest tests/test_narration.py -v` (FAIL `ModuleNotFoundError`, then 3 PASS). Episode times: subtitle lines and clips carry episode start times (`orig_start` style fields in `metadata.jsonl`); use the same field `extend-events` uses.
+
+- [ ] **Step 3: Pilot on 20 TRT episodes** (GPU, ask first): `transcribe_narration.py --limit-episodes 20`, then `narration_labels.py`.
+Expected in `NARRATION.md`: narrator seconds per episode, Whisper real-time factor, descriptions per emotion, linked lines per emotion, share of descriptions with a resolvable name. Extrapolate to 1,017 TRT episodes and write it in `stage2_results.md`. Stop and show the user if fewer than ~2,000 linked lines per class are projected.
+
+- [ ] **Step 4: Full run** (GPU ~3–5 h by the pilot's rate, ask first; tmux `narr`, marker `data/logs/narration_done`).
+
+- [ ] **Step 5: Calibrate by ear.** Calibration page of 40 linked clips per class (angry, sad, happy, and crying / scared / surprised if each has ≥ 1,000 linked lines), half where emotion2vec+ agrees at confidence ≥ 0.5, half where it does not; the user rates the delivery as in the 2026-10-27 calibration (`ttsdata.emotion.RATING_CHOICES`). Score with `ttsdata.emotion.score_ratings`.
+Decision per class and source: narrator alone, narrator + emotion2vec+ ≥ 0.5, emotion2vec+ alone at the calibrated cut. A source is used when its rated precision ≥ 0.76 (the spec's target, as in the 2026-10-27 calibration). A new style (crying, scared, surprised) enters stage 2 only with precision ≥ 0.76 and ≥ 3,000 clips; otherwise it waits for a later run.
+
+- [ ] **Step 6: Commit** `ttsdata/narration.py`, both scripts, `tests/test_narration.py`, the ratings sheet under `calibration/`, `stage2_results.md`.
 
 ---
 
@@ -372,10 +499,13 @@ cd ~/voice-data && mv data/voxcpm_stage2 data/voxcpm_stage2_prev
 ~/tts/venv-voxcpm/bin/python scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 \
   --wavs wavs_sidon --long-wavs wavs_sidon --restored-only --events-wavs wavs_clean \
   --auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99 --min-tag 150 \
-  --plain-rows none --labelled-ref-ratio 0.8 --label-first --label-quota 3000 --label-max-share 1.0 \
-  --label-repeat 1 --replay-share 0 --max-hours 40 --anchor-share 0 [--styles-exclude/--tags-exclude from Task 4]
+  [--narration-styles data/dataset/narration_styles.jsonl] [--include-unconfirmed-tags cry if the cry check passed] \
+  --plain-rows none --labelled-ref-ratio 0.8 --label-first --label-quota 6000 --label-max-share 1.0 \
+  --label-repeat 1 --replay-share 0 --max-hours 80 --anchor-share 0 [--styles-exclude/--tags-exclude from Task 4]
 ```
-Expected: `tier_report.md` lists per label the clips in tier, in slice and written; labelled train rows ≈ 9k–12k; every train row labelled; no FLEURS rows. Write the label table into `stage2_results.md`. If `--restored-only` leaves any style under 1,000 clips, stop and ask the user (option: `wavs_clean` for that style's clips).
+Expected: `tier_report.md` lists per label the clips in tier, in slice and written; each style at its 6,000 quota (≈ 7–9 h), labelled train rows ≈ 20k–24k; every train row labelled; no FLEURS rows. Write the label table into `stage2_results.md`. Quota 6,000 keeps the styles balanced and the anchor synthesis near a night's work; raise it in a later run only if a style misses its gate narrowly. If `--restored-only` leaves any style under 3,000 clips, stop and ask the user.
+
+Unconfirmed cries: the user's blind check (`data/listening_sample/stage2_cry_check.html`, 30 unconfirmed + 8 verified, key in `.key.json` beside it) decides. `--include-unconfirmed-tags cry` when ≥ 24 of 30 unconfirmed clips are heard as crying (0.8, my call); otherwise they stay out.
 
 - [ ] **Step 4: Does Sidon keep the style?** (GPU, ~15 min, ask first)
 
@@ -453,7 +583,7 @@ All pages built with `scripts/blind_page.py`, sentences never heard before, keys
 
 - All gates met → stage 2 passes with this checkpoint and scale; write the inference recipe at the top of `stage2_results.md`.
 - Only the plain regression fails → deploy rule "adapter only for text that carries a label": plain text goes to the untrained model (`--lora-scale 0,0` is not exact, so route plain text to `--system voxcpm2`). Ask the user whether that counts as a pass.
-- A single tag fails (likely `[ağlama]`) → stage 2 passes without that tag; the tag goes back to metadata and is named in the results as stage 3 work (more cry clips from the 160 h run 5b slice).
+- A single tag fails (likely `[ağlama]`) → stage 2 passes without that tag; the tag goes back to metadata and is named in the results as stage 3 work. More cry clips can only come from the cue funnel (standalone cues joined to a line further away, or a cry detector), not from more cleaning: Task 3A already cleans every usable cry clip.
 - Styles fail by ear → back to Task 6 retry rule.
 
 - [ ] **Step 4: Commit** `stage2_results.md` and push to `main`.
@@ -463,5 +593,6 @@ All pages built with `scripts/blind_page.py`, sentences never heard before, keys
 ## Self-review notes
 
 - Spec coverage: labelled subset with Turkish prefixes and tags (Task 3, Task 5), neutral rows kept so "no prefix" stays neutral (anchor rows, Task 5), emotion2vec+ accuracy with the CosyVoice 3 text-unrelated figures (Task 7), tag realisation by detector and by ear (Tasks 1, 7). Deviations from the spec, each from stage 1 evidence: no "continue the same adapter" (fresh LM-only LoRA from base); unlabelled replay comes from base-model outputs, not corpus or FLEURS clips; EmpathicInsight agreement dropped (calibration 2026-10-27: angry precision 0.40); gender in the prefix dropped (stage 2 speaks in clip B's voice).
-- Calls made by the planner, not the user: rank 32 and 2 epochs; anchor share 0.5; `--labelled-ref-ratio 0.8`; Freya line ranges; the number thresholds in Task 7 other than the regression rule; the Sidon-check threshold (0.8×); the P1–P4 probe setups and English prompt wording.
-- Known unknowns: whether VoxCPM2 follows a style prefix at all while cloning (Task 4 answers it); real-time factor for the anchor synthesis (Task 5 Step 5 measures it); whether `[iç çekme]` (73 clips) or `[öksürük]` reach `--min-tag 150` in the 160 h run 5b data (not planned here; they stay metadata); happy labels rest on 19 rated clips, so happy's numeric gate is lower and the ear decides.
+- Engelsiz-specific sources used: subtitle sound cues (event clips, all usable ones cleaned in Task 3A), audio-description narration (Task 3B). Subtitle speaking-manner cues are too few (85) to train on; they stay a free check.
+- Calls made by the planner, not the user: rank 32 and 2 epochs; anchor share 0.5; label quota 6,000 per style; the 0.8 bar for unconfirmed cries; the narrator lexicon, link window (−2 s … +20 s) and the 3,000-clip bar for a new style; `--labelled-ref-ratio 0.8`; Freya line ranges; the number thresholds in Task 7 other than the regression rule; the Sidon-check threshold (0.8×); the P1–P4 probe setups and English prompt wording.
+- Known unknowns: whether VoxCPM2 follows a style prefix at all while cloning (Task 4 answers it); real-time factor for the anchor synthesis (Task 5 Step 5 measures it); whether `[iç çekme]` (138 usable clips) or `[öksürük]` (285) reach `--min-tag 150` after Task 3A (not trained here; they stay metadata); happy labels rest on 19 rated clips, so happy's numeric gate is lower and the ear decides.
