@@ -33,10 +33,12 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.labels import EVENT_TAG, STYLE_PREFIX, allowed_labels, auto_styles, labelled_text, oversample  # noqa: E402
+from ttsdata.labels import (EVENT_TAG, STYLE_PREFIX, allowed_labels, auto_styles, labelled_text, oversample,  # noqa: E402
+                            parse_label_list)
 from ttsdata.manifest import (cap_hours, combine_events, combine_units, folder_rows, labels_first,  # noqa: E402
-                              manifest_row, pair_neutral_refs, pair_references, restore_bases, restored_only,
-                              stage_filter, tier_funnel, validate_row)
+                              load_narration_styles, manifest_row, neutral_ref_ok, pair_neutral_refs,
+                              pair_references, restore_bases, restored_only, row_labels, stage_filter, tier_funnel,
+                              validate_row)
 from ttsdata.voicegender import DESCRIPTIONS, describe  # noqa: E402
 
 
@@ -137,6 +139,12 @@ def main() -> int:
     ap.add_argument("--max-cer", type=float, default=0.05)
     ap.add_argument("--min-cluster", type=int, default=10)
     a = ap.parse_args()
+    try:  # label names checked before any work: a typo must not silently change the build
+        unconfirmed_tags = parse_label_list(a.include_unconfirmed_tags, EVENT_TAG, "--include-unconfirmed-tags")
+        exclude = (parse_label_list(a.styles_exclude, STYLE_PREFIX, "--styles-exclude")
+                   | parse_label_list(a.tags_exclude, EVENT_TAG, "--tags-exclude"))
+    except ValueError as e:
+        raise SystemExit(str(e))
     root, out = Path(a.root), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -194,8 +202,7 @@ def main() -> int:
     units = rows  # kept so an event row whose tag is not written can hand its place back to its base clip
     events_root = Path(a.events_root) if a.events_root and a.stage >= 2 else None
     events = []
-    unconfirmed = True if a.include_unconfirmed else (
-        {t.strip() for t in a.include_unconfirmed_tags.split(",") if t.strip()} or False)
+    unconfirmed = True if a.include_unconfirmed else (set(unconfirmed_tags) or False)
     if events_root and (events_root / "metadata.jsonl").exists():
         if not (events_root / "quality.jsonl").exists():
             raise SystemExit(f"{events_root / 'quality.jsonl'} missing: run scripts/audit_quality.py --root {events_root}")
@@ -222,11 +229,12 @@ def main() -> int:
             raise SystemExit("--auto-styles needs emotions.jsonl: run ttsdata emotions first")
         auto = auto_styles(em_rows, a.auto_min_conf, per_class)
         print(f"auto styles: {len(auto)} clips above confidence ({a.auto_min_conf}{', ' + a.auto_conf if a.auto_conf else ''})")
-    narr: dict[str, list[str]] = defaultdict(list)
+    narr: dict[str, list[str]] = {}
     if a.stage >= 2 and a.narration_styles:
-        for r in load_jsonl(Path(a.narration_styles)):
-            if r.get("style") in STYLE_PREFIX and r["style"] not in narr[r["id"]]:
-                narr[r["id"]].append(r["style"])
+        try:
+            narr = load_narration_styles(a.narration_styles)
+        except FileNotFoundError as e:
+            raise SystemExit(str(e))
         print(f"narration styles: {len(narr)} clips from {a.narration_styles}")
 
     def tags_of(r):
@@ -240,14 +248,7 @@ def main() -> int:
         return merged
 
     def labels_of(r):  # labels the row can carry in stage 2 (written only when frequent enough in the slice)
-        t = tags_of(r) or {}
-        labs = [f"style:{s}" for s in t.get("style", []) if s in STYLE_PREFIX]
-        if r["root"] == "dataset_events" and r.get("tag") in EVENT_TAG:
-            labs.append(f"tag:{r['tag']}")
-        if r["root"] == "dataset_long":
-            labs += [f"tag:{e['tag']}" for e in t.get("events", []) if (e.get("where") or "").startswith("gap:")
-                     and e.get("char") is not None and e.get("who_match") is not False and e.get("tag") in EVENT_TAG]
-        return labs
+        return row_labels(r, tags_of(r))
 
     # stage 2: labelled clips go in first (rarest label first, --label-quota each, at most --label-max-share of the
     # hours), so a random slice of a much bigger tier does not sample the rare tags away; the random fill then takes
@@ -266,7 +267,6 @@ def main() -> int:
     tags_seen = [r["tag"] for r in slice_rows if r["root"] == "dataset_events"]
     tags_seen += [e["tag"] for r in slice_rows if r["root"] == "dataset_long" for e in (tags_of(r) or {}).get("events", [])
                   if (e.get("where") or "").startswith("gap:") and e.get("who_match") is not False]
-    exclude = frozenset(x.strip() for x in f"{a.styles_exclude},{a.tags_exclude}".split(",") if x.strip())
     styles_ok, events_ok = (allowed_labels(styles_seen, tags_seen, a.min_style, a.min_tag, exclude=exclude)
                             if a.stage >= 2 else (set(), set()))
     if a.stage >= 2:  # an event clip whose tag is not written would carry an untagged sound: back to its base
@@ -291,7 +291,9 @@ def main() -> int:
             lab = [r for r in split_rows if not is_plain(r)]
             for r in lab:
                 pairs.pop(r["id"], None)
-            neutral = pair_neutral_refs(lab, [r for r in tier if in_split(r)], is_plain, a.labelled_ref_ratio, a.seed)
+            # a reference carries no label at all, written or not (an excluded style still colours the delivery)
+            neutral = pair_neutral_refs(lab, [r for r in tier if in_split(r)], lambda r: neutral_ref_ok(r, tags_of(r)),
+                                        a.labelled_ref_ratio, a.seed)
             pairs.update(neutral)
             n_neutral_ref += len(neutral)
         ref_ids = set(pairs.values())

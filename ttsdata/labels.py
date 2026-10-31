@@ -43,6 +43,16 @@ def allowed_labels(styles: list[str], tags: list[str], min_style: int, min_tag: 
             {t for t, n in ct.items() if n >= min_tag and t in EVENT_TAG and t not in exclude})
 
 
+def parse_label_list(spec: str, known, flag: str) -> frozenset[str]:
+    """'angry, sad' -> frozenset({"angry", "sad"}); a name not in `known` raises ValueError (a typo must not
+    silently do nothing)."""
+    names = frozenset(x.strip() for x in (spec or "").split(",") if x.strip())
+    bad = sorted(names - set(known))
+    if bad:
+        raise ValueError(f"{flag}: unknown {', '.join(bad)} (known: {', '.join(sorted(known))})")
+    return names
+
+
 def labelled_text(text: str, tags: dict | None, styles_ok: set[str], events_ok: set[str]) -> str:
     """Training text with a Turkish style prefix and inline tags at a merged clip's pauses.
 

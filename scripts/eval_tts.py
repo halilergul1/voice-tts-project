@@ -226,7 +226,7 @@ def cmd_score(a) -> None:
     import jiwer
 
     from ttsdata.config import Config
-    from ttsdata.stylemetrics import read_aloud, scoring_texts
+    from ttsdata.stylemetrics import prompt_words as _prompt_words, read_aloud, scoring_texts
     from ttsdata.textnorm import for_cer
 
     run_dir = EVAL_DIR / a.run
@@ -242,7 +242,7 @@ def cmd_score(a) -> None:
     if run_meta.get("sentences") and Path(run_meta["sentences"]).name != Path(a.sentences).name:
         print(f"[warn] run was synthesised from {run_meta['sentences']}, scoring against {a.sentences}")
     # words of a text prompt ("(An angry voice)") that would show up in the transcript if the model spoke them
-    prompt_words = tuple(w for w in for_cer(run_meta.get("prompt") or "").split() if len(w) >= 4)
+    prompt_words = _prompt_words(run_meta.get("prompt") or "")
     n_use = min(len(sentences), a.limit) if a.limit else len(sentences)
     wavs = [p for p in sorted(wav_dir.glob("*.wav")) if p.stem.isdigit() and int(p.stem) < n_use]
     if not wavs:

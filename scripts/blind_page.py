@@ -4,11 +4,13 @@
       --sentences data/eval/r7_sentences.txt --n 20 --seed 7 --title "Blind A/B stage 2 round 1" --out page.html
   blind_page.py style --style angry=DIR --style happy=DIR --style sad=DIR --style neutral=DIR --n-per 8 --seed 1 \
       --sentences data/eval/style_neutral.txt --ask-natural --title "Which delivery?" --out page.html
+  blind_page.py style --style laugh=DIR@data/eval/tags_laugh.txt --style none=DIR@data/eval/style_neutral.txt ...
   blind_page.py tally --key page.key.json --answers "ab: 1:A 2:same 3:B"
 
-Wav files are named by sentence index (0000.wav, ...), as eval_tts.py writes them. The answer key goes to
+Wav files are named by sentence index (0000.wav, ...), as eval_tts.py writes them; the page shows each sentence with
+its style prefix and tags removed on style pages (A/B pages show the full request). The answer key goes to
 <out>.key.json next to the page and never into the page; the page's "Copy answers" button gives a line the listener
-pastes back, which `tally` scores. Picks survive a reload (localStorage, per page). Needs ffmpeg.
+pastes back, which `tally` scores. Picks survive a reload (localStorage, per page build). Needs ffmpeg.
 """
 from __future__ import annotations
 
@@ -16,13 +18,13 @@ import argparse
 import base64
 import html
 import json
-import random
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.blindpage import ab_key, parse_answers, style_items, tally_ab, tally_style  # noqa: E402
+from ttsdata.blindpage import (ab_layout, item_text, parse_answers, parse_style_spec, storage_key,  # noqa: E402
+                               style_items, tally_ab, tally_style)
 
 CSS = """:root{--bg:#fafaf8;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#e4e3dd;--acc:#2f6f5e}
 @media (prefers-color-scheme:dark){:root{--bg:#161615;--fg:#ecebe6;--mut:#9a9992;--card:#1f1f1d;--line:#33322f;--acc:#7cc2ad}}
@@ -66,7 +68,7 @@ def radios(name: str, options: list[tuple[str, str]]) -> str:
 
 def write_page(out: Path, title: str, intro: str, cards: list[str], groups: list[tuple[str, str]], key: dict) -> None:
     js = (JS.replace("__N__", str(len(cards))).replace("__G__", json.dumps(groups))
-          .replace("__S__", json.dumps(f"blind_page:{out.stem}")))
+          .replace("__S__", json.dumps(storage_key(out.stem, key))))
     page = (f"<!doctype html><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
             f"<title>{html.escape(title)}</title><style>{CSS}</style><main><h1>{html.escape(title)}</h1>"
             f"<p class=mut>{html.escape(intro)} Your picks stay in this browser if you reload. At the end press Copy "
@@ -86,19 +88,18 @@ def read_sentences(p: str | None) -> list[str]:
 def cmd_ab(a) -> None:
     sentences = read_sentences(a.sentences)
     n = a.n or len(sentences)
-    pairs = []
+    files = {}
     for j in range(n):
         ours, theirs = Path(a.ours) / f"{j:04d}.wav", Path(a.theirs) / f"{j + a.theirs_offset:04d}.wav"
         for p in (ours, theirs):
             if not p.exists():
                 raise SystemExit(f"missing {p}")
-        pairs.append((j, ours, theirs))
-    random.Random(a.seed).shuffle(pairs)
-    sides = ab_key(n, a.seed)
+        files[j] = (ours, theirs)
     cards, key = [], []
-    for i, ((j, ours, theirs), side) in enumerate(zip(pairs, sides), 1):
+    for i, (j, side) in enumerate(ab_layout(n, a.seed), 1):
+        ours, theirs = files[j]
         first, second = (ours, theirs) if side == "A" else (theirs, ours)
-        text = html.escape(sentences[j]) if j < len(sentences) else ""
+        text = html.escape(sentences[j]) if j < len(sentences) else ""  # both sides had this request
         cards.append(f"<div class=card><div class=mut>{i} / {n}</div><div>{text}</div>"
                      f"<div class=row>{audio(first, 'A')}{audio(second, 'B')}</div><div class=row>"
                      + radios(f"q{i}", [("A", "A better"), ("B", "B better"), ("same", "same")]) + "</div></div>")
@@ -111,15 +112,18 @@ def cmd_ab(a) -> None:
 
 
 def cmd_style(a) -> None:
-    dirs = dict(s.split("=", 1) for s in a.style)
+    try:
+        specs = [parse_style_spec(s) for s in a.style]
+    except ValueError as e:
+        raise SystemExit(str(e))
+    dirs = {name: d for name, d, _ in specs}
+    sentences = {name: read_sentences(sf or a.sentences) for name, _, sf in specs}
     by = {name: [str(p) for p in sorted(Path(d).glob("*.wav"))] for name, d in dirs.items()}
     items = style_items(by, a.n_per, a.seed)
-    sentences = read_sentences(a.sentences)
     names = list(dirs)
     cards, groups = [], [("style", "q")] + ([("natural", "n")] if a.ask_natural else [])
     for i, it in enumerate(items, 1):
-        stem = Path(it["wav"]).stem
-        text = sentences[int(stem)] if stem.isdigit() and int(stem) < len(sentences) else ""
+        text = item_text(it["wav"], sentences[it["style"]])
         shown = f" <span class=tag>{html.escape(it['style'])}</span>" if a.show_labels else ""
         nat = ("<div class=row><span class=mut>natural?</span>" + radios(f"n{i}", [("yes", "yes"), ("no", "no")])
                + "</div>") if a.ask_natural else ""
@@ -169,7 +173,8 @@ def main() -> int:
     ab.add_argument("--theirs-offset", type=int, default=0, help="their wav index = sentence index + offset")
     ab.add_argument("--n", type=int, default=0, help="pairs (default: every sentence)")
     st = sub.add_parser("style", help="style (or tag) identification page")
-    st.add_argument("--style", action="append", required=True, help="NAME=DIR, repeat; NAME is also the answer")
+    st.add_argument("--style", action="append", required=True,
+                    help="NAME=DIR or NAME=DIR@SENTENCES (that folder's sentences file), repeat; NAME is also the answer")
     st.add_argument("--n-per", type=int, default=8)
     st.add_argument("--ask-natural", action="store_true")
     st.add_argument("--show-labels", action="store_true", help="not blind: print each clip's style (data checks)")

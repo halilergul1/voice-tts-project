@@ -31,3 +31,19 @@ def test_tag_realised():
     assert tag_realised("Hahaha hadi gidelim", "laugh") is True
     assert tag_realised("hadi gidelim", "laugh") is False
     assert tag_realised("hadi gidelim", "cry") is None
+
+
+def test_scoring_texts_drops_spaced_laughter_runs():  # review: Whisper also writes "Ha ha ha" / "Hı hı hı"
+    assert scoring_texts("[gülme] Hadi gidelim.", "Ha ha ha hadi gidelim") == ("hadi gidelim", "hadi gidelim")
+    assert scoring_texts("[gülme] Hadi gidelim.", "Hı hı hı, hadi gidelim") == ("hadi gidelim", "hadi gidelim")
+    assert scoring_texts("[gülme] Aha, buldum!", "Aha buldum") == ("aha buldum", "aha buldum")  # a word in the text
+    assert scoring_texts("[gülme] Oha!", "oha hahaha") == ("oha", "oha")
+
+
+def test_prompt_words_keeps_short_content_words():
+    from ttsdata.stylemetrics import prompt_words
+
+    assert prompt_words("(A sad voice)") == ("sad", "voice")
+    assert prompt_words("(Otuzlu yaşlarında bir erkek, sakin ve doğal bir ses)") == (
+        "otuzlu", "yaşlarında", "erkek", "sakin", "doğal", "ses")
+    assert prompt_words("") == ()

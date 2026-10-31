@@ -7,7 +7,7 @@ import random
 import re
 from collections import defaultdict
 
-from .labels import STRONG_STYLES
+from .labels import EVENT_TAG, STRONG_STYLES, STYLE_PREFIX
 from .quality import text_flags
 from .textnorm import normalize
 
@@ -330,3 +330,41 @@ def labels_first(rows: list[dict], labels_of, max_hours: float, per_label: int, 
             spent += r["duration"]
             n += 1
     return taken
+
+
+def row_labels(r: dict, tags: dict | None) -> list[str]:
+    """Labels a row can carry in stage 2, written or not: "style:<s>" for each known style of the clip, "tag:<t>"
+    for an event clip's sound and for each placed pause sound of a merged clip."""
+    t = tags or {}
+    labs = [f"style:{s}" for s in t.get("style", []) if s in STYLE_PREFIX]
+    if r["root"] == "dataset_events" and r.get("tag") in EVENT_TAG:
+        labs.append(f"tag:{r['tag']}")
+    if r["root"] == "dataset_long":
+        labs += [f"tag:{e['tag']}" for e in t.get("events", []) if (e.get("where") or "").startswith("gap:")
+                 and e.get("char") is not None and e.get("who_match") is not False and e.get("tag") in EVENT_TAG]
+    return labs
+
+
+def neutral_ref_ok(r: dict, tags: dict | None) -> bool:
+    """A clip may serve as the plain reference of a labelled row: no event clip and no label at all, including
+    labels the build does not write (an excluded or rare style still colours the delivery)."""
+    return r["root"] != "dataset_events" and not row_labels(r, tags)
+
+
+def load_narration_styles(path) -> dict[str, list[str]]:
+    """narration_styles.jsonl ({id, style, source}) -> {clip id: [known styles, first-seen order]};
+    FileNotFoundError when the file is missing."""
+    import json
+    from pathlib import Path
+
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"narration styles file {p} not found")
+    out: dict[str, list[str]] = {}
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        r = json.loads(line)
+        if r.get("style") in STYLE_PREFIX and r["style"] not in out.setdefault(r["id"], []):
+            out[r["id"]].append(r["style"])
+    return {k: v for k, v in out.items() if v}

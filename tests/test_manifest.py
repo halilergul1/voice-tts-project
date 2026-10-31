@@ -250,3 +250,36 @@ def test_combine_events_unconfirmed_per_tag():
     assert sorted(r["id"] for r in out) == ["c1", "c10"]  # the cry clip replaces c0; the laugh clip stays out
     out_all = combine_events(units, events, q, evidence={"clean"}, include_unconfirmed=True)
     assert sorted(r["id"] for r in out_all) == ["c10", "c11"]
+
+
+def test_neutral_ref_ok_rejects_any_label_written_or_not():  # review: excluded-style clips served as "plain" refs
+    from ttsdata.manifest import neutral_ref_ok
+
+    plain = {**R(0), "root": "dataset"}
+    assert neutral_ref_ok(plain, {"style": [], "events": []}) and neutral_ref_ok(plain, None)
+    assert not neutral_ref_ok(plain, {"style": ["happy"], "events": []})          # excluded / rare style still counts
+    assert neutral_ref_ok(plain, {"style": ["whatever"], "events": []})           # not a style we know
+    merged = {**R(1), "root": "dataset_long"}
+    assert not neutral_ref_ok(merged, {"style": [], "events": [{"tag": "laugh", "where": "gap:0", "char": 3}]})
+    assert not neutral_ref_ok({**R(2), "root": "dataset_events", "tag": "cry"}, None)
+
+
+def test_parse_label_list_rejects_unknown_names():  # review: a typo silently did nothing
+    from ttsdata.labels import parse_label_list
+
+    assert parse_label_list("angry, sad", {"angry", "sad", "happy"}, "--styles-exclude") == frozenset({"angry", "sad"})
+    assert parse_label_list("", {"angry"}, "--styles-exclude") == frozenset()
+    with pytest.raises(ValueError, match="öfkeyle"):
+        parse_label_list("öfkeyle", {"angry"}, "--styles-exclude")
+
+
+def test_load_narration_styles(tmp_path):  # review: a wrong path silently trained without narration labels
+    from ttsdata.manifest import load_narration_styles
+
+    with pytest.raises(FileNotFoundError):
+        load_narration_styles(tmp_path / "missing.jsonl")
+    p = tmp_path / "n.jsonl"
+    p.write_text('{"id": "a", "style": "angry", "source": "x"}\n{"id": "a", "style": "angry", "source": "y"}\n'
+                 '{"id": "a", "style": "sad", "source": "x"}\n{"id": "b", "style": "grumpy", "source": "x"}\n',
+                 encoding="utf-8")
+    assert load_narration_styles(p) == {"a": ["angry", "sad"]}

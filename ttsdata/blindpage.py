@@ -2,10 +2,14 @@
 of the listener's answers. Pure functions; scripts/blind_page.py writes the HTML."""
 from __future__ import annotations
 
+import hashlib
+import json
 import random
 import re
 from collections import Counter
 from pathlib import Path
+
+from ttsdata.stylemetrics import strip_labels
 
 UNANSWERED = ("-", "", None)
 
@@ -15,6 +19,37 @@ def ab_key(n: int, seed: int) -> list[str]:
     key = ["A"] * (n // 2) + ["B"] * (n - n // 2)
     random.Random(seed).shuffle(key)
     return key
+
+
+def ab_layout(n: int, seed: int) -> list[tuple[int, str]]:
+    """Card order for an A/B page: (sentence index, side our system is on) per card. The order and the sides come
+    from separate draws, so which side is ours does not follow the sentence index."""
+    rng = random.Random(seed)
+    order = list(range(n))
+    rng.shuffle(order)
+    return list(zip(order, ab_key(n, rng.randrange(2**31))))
+
+
+def storage_key(stem: str, key) -> str:
+    """localStorage key of a page: its file name plus a hash of its answer key, so a rebuilt page starts empty."""
+    digest = hashlib.sha1(json.dumps(key, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:10]
+    return f"blind_page:{stem}:{digest}"
+
+
+def parse_style_spec(spec: str) -> tuple[str, str, str | None]:
+    """'NAME=DIR' or 'NAME=DIR@SENTENCES' (a sentences file for that folder) -> (name, dir, sentences or None)."""
+    name, eq, rest = spec.partition("=")
+    if not eq or not name or not rest:
+        raise ValueError(f"--style takes NAME=DIR[@SENTENCES], got {spec!r}")
+    d, _, sents = rest.partition("@")
+    return name, d, sents or None
+
+
+def item_text(wav: str, sentences: list[str]) -> str:
+    """The sentence a clip (named by sentence index, 0000.wav) says, with its style prefix and tags removed, so the
+    page does not give the answer away; "" when unknown."""
+    stem = Path(wav).stem
+    return strip_labels(sentences[int(stem)]) if stem.isdigit() and int(stem) < len(sentences) else ""
 
 
 def tally_ab(key: list[str], picks: list[str]) -> dict:
