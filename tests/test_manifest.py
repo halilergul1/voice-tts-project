@@ -283,3 +283,13 @@ def test_load_narration_styles(tmp_path):  # review: a wrong path silently train
                  '{"id": "a", "style": "sad", "source": "x"}\n{"id": "b", "style": "grumpy", "source": "x"}\n',
                  encoding="utf-8")
     assert load_narration_styles(p) == {"a": ["angry", "sad"]}
+
+
+def test_keep_short_labelled():  # Task 3D: short emotional lines join the tier, short plain lines do not
+    from ttsdata.manifest import keep_short_labelled
+
+    rows = [R(0, dur=4.0), R(1, dur=2.0), R(2, dur=1.6), R(3, dur=3.0)]
+    labelled = {"c2"}
+    kept = keep_short_labelled(rows, lambda r: ["style:angry"] if r["id"] in labelled else [])
+    assert [r["id"] for r in kept] == ["c0", "c2", "c3"]
+    assert [r["id"] for r in keep_short_labelled(rows, lambda r: [], plain_min_dur=1.5)] == ["c0", "c1", "c2", "c3"]

@@ -368,3 +368,9 @@ def load_narration_styles(path) -> dict[str, list[str]]:
         if r.get("style") in STYLE_PREFIX and r["style"] not in out.setdefault(r["id"], []):
             out[r["id"]].append(r["style"])
     return {k: v for k, v in out.items() if v}
+
+
+def keep_short_labelled(rows: list[dict], labels_of, plain_min_dur: float = 3.0) -> list[dict]:
+    """Rows of at least plain_min_dur seconds, plus shorter rows that carry a label (stage 2: emotional lines are
+    often short, "Yeter!"; a short plain line teaches nothing the base model lacks)."""
+    return [r for r in rows if r["duration"] >= plain_min_dur or labels_of(r)]

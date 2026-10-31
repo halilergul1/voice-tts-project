@@ -89,10 +89,11 @@ wordcheck() {
 }
 
 # labelled clips only (no plain rows), every label at full quota, unconfirmed laughs and breaths too, so a later yes
-# to them needs no second pass
+# to them needs no second pass; Task 3D: subtitle kept up to a 20% Whisper mismatch, labelled lines from 1.5 s
 stage rawlabels "$PY" scripts/make_voxcpm_manifest.py --stage 2 --out "$RAWLABELS" --wavs wavs --long-wavs wavs \
     --events-wavs wavs --auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99 --min-tag 150 \
     --include-unconfirmed-tags cry,laugh,breath --plain-rows none --label-first --label-quota 1000000 \
+    --max-cer 0.20 --label-min-dur 1.5 \
     --label-max-share 1.0 --label-repeat 1 --replay-share 0 --max-hours "$RAW_HOURS" --max-series-share 1.0 \
     ${NARR:+--narration-styles "$NARR"}
 stage sep_dataset_events      separate_clips data/dataset_events

@@ -36,7 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.labels import (EVENT_TAG, STYLE_PREFIX, allowed_labels, auto_styles, labelled_text, oversample,  # noqa: E402
                             parse_label_list)
 from ttsdata.manifest import (cap_hours, combine_events, combine_units, folder_rows, labels_first,  # noqa: E402
-                              load_narration_styles, manifest_row, neutral_ref_ok, pair_neutral_refs,
+                              keep_short_labelled, load_narration_styles, manifest_row, neutral_ref_ok, pair_neutral_refs,
                               pair_references, restore_bases, restored_only, row_labels, stage_filter, tier_funnel,
                               validate_row)
 from ttsdata.voicegender import DESCRIPTIONS, describe  # noqa: E402
@@ -138,6 +138,8 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--max-cer", type=float, default=0.05)
     ap.add_argument("--min-cluster", type=int, default=10)
+    ap.add_argument("--label-min-dur", type=float, default=None,
+                    help="stage 2: labelled clips down to this many seconds join the tier (unlabelled ones keep 3 s)")
     a = ap.parse_args()
     try:  # label names checked before any work: a typo must not silently change the build
         unconfirmed_tags = parse_label_list(a.include_unconfirmed_tags, EVENT_TAG, "--include-unconfirmed-tags")
@@ -145,6 +147,8 @@ def main() -> int:
                    | parse_label_list(a.tags_exclude, EVENT_TAG, "--tags-exclude"))
     except ValueError as e:
         raise SystemExit(str(e))
+    if a.label_min_dur is not None and (a.stage < 2 or not 0 < a.label_min_dur <= 3.0):
+        raise SystemExit("--label-min-dur takes 0 < S <= 3 and stage 2")
     root, out = Path(a.root), Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
 
@@ -198,6 +202,8 @@ def main() -> int:
         print("[warn] no soundtags.jsonl: run ttsdata soundtags to drop overlapping / foreign / censored clips")
     tier_kw = dict(max_cer=a.max_cer, min_cluster=a.min_cluster, soundtags=soundtags, stage=a.stage,
                    max_music_db=a.max_music_db, max_music_db_separated=a.max_music_db_separated)
+    if a.label_min_dur is not None:  # short rows pass the gates here; unlabelled ones leave once labels are known
+        tier_kw["min_dur"] = a.label_min_dur
     rows = combine_units(singles, merged, quality, **tier_kw)
     units = rows  # kept so an event row whose tag is not written can hand its place back to its base clip
     events_root = Path(a.events_root) if a.events_root and a.stage >= 2 else None
@@ -249,6 +255,13 @@ def main() -> int:
 
     def labels_of(r):  # labels the row can carry in stage 2 (written only when frequent enough in the slice)
         return row_labels(r, tags_of(r))
+
+    n_short = 0
+    if a.label_min_dur is not None:
+        tier = keep_short_labelled(tier, labels_of)
+        short = [r for r in tier if r["duration"] < 3.0]
+        n_short = (len(short), sum(r["duration"] for r in short) / 3600)
+        print(f"short labelled lines: {n_short[0]} clips ({n_short[1]:.2f} h) of {a.label_min_dur}-3 s join the tier")
 
     # stage 2: labelled clips go in first (rarest label first, --label-quota each, at most --label-max-share of the
     # hours), so a random slice of a much bigger tier does not sample the rare tags away; the random fill then takes

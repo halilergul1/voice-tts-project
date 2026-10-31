@@ -46,6 +46,7 @@ Order of operations:
 3. **Manifest options** (Task 3, Mac): labelled rows only, neutral references for labelled rows, anchor rows from a folder, unconfirmed event clips per tag.
 3A. **Label-first cleaning** (Task 3A, GPU ~10 h): separate + Sidon every emotion-labelled clip, separate every usable event clip.
 3B. **Narrator emotion labels** (Task 3B, GPU pilot then ~3–5 h): transcribe the narrator, link "X sinirle..." to X's lines, calibrate by ear.
+3D. **Text recovery** (Task 3D, Mac + GPU): keep the subtitle up to a 20% mismatch, labelled lines from 1.5 s, and a second recogniser to rescue lines rejected for a bigger mismatch. Done before any stage 2 training.
 3C. **Event clip clean-up** (Task 3C, CPU): drop event clips where the narrator talks over the sound or the sound belongs to another person than the speaker; second cry check by ear.
 4. **Base probe** (Task 4, GPU ~1 h): styles and tags with the untrained model in four prompt / clip setups. Decision: which labels the LoRA trains, and which inference setup styled sentences use.
 5. **Data** (Task 5, GPU): check Sidon keeps the styles; synthesise the anchor set; rebuild `data/voxcpm_stage2`.
@@ -354,6 +355,38 @@ Every training clip must be BS-Roformer-separated (speech: then Sidon-restored);
 Expected: `tier_report.md` of `data/voxcpm_stage2_rawlabels` lists the labelled hours per label before cleaning; after the run, a restored-only build (Task 5 Step 3) has ≥ 15 h per style and ≥ 250 cry clips (≥ 300 with the unconfirmed ones). Record both in `stage2_results.md`.
 
 - [ ] **Step 4: Commit** `scripts/server_label_clean.sh`.
+
+---
+
+### Task 3D: Text recovery (keep good subtitles; a second recogniser breaks ties)
+
+Most emotional clips never reach the tier, and not because of audio: the music / silence / sound-flag gates drop < 1% of them. Of 62,342 angry single clips, 45,057 are shorter than 3 s and 4,706 fail the 5% Whisper-vs-subtitle gate; 124,246 lines (64 h) were rejected before the dataset for a > 20% mismatch and never scored for emotion. The user's listening check (2026-11-01, 20 clips the text check drops) found the subtitle mostly right where Whisper differs. Rule agreed with the user:
+
+| Whisper vs subtitle | text |
+|---|---|
+| ≤ 20% | the subtitle (stage 2 builds pass `--max-cer 0.20`) |
+| > 20% (`high_cer` rejects) | second recogniser (another model family than Whisper) votes: agrees with the subtitle (≤ 5%) → subtitle; agrees with Whisper and not the subtitle → what is spoken; neither → drop |
+| `multi_speaker`, `unaligned`, `no_speech`, `credits` | dropped |
+
+Labelled lines of 1.5–3 s join the tier (`--label-min-dur 1.5`); unlabelled rows keep 3 s. Before training on them, a listening check of 30 short clips per style (Task 5) confirms the emotion labels hold on short clips.
+
+**Files:**
+- Modify: `ttsdata/manifest.py` (`keep_short_labelled`), `scripts/make_voxcpm_manifest.py` (`--label-min-dur`), `scripts/server_label_clean.sh` (selection flags)
+- Create: `ttsdata/textvote.py`, `scripts/second_asr.py`, `scripts/recover_clips.py`; tests `tests/test_textvote.py`
+
+**Interfaces:**
+- `keep_short_labelled(rows, labels_of, plain_min_dur=3.0) -> list[dict]`: rows ≥ `plain_min_dur`, plus shorter rows with a label.
+- `--label-min-dur S` (stage 2; 0 < S ≤ 3): the duration gate's minimum becomes S, then unlabelled rows under 3 s leave the tier; default off (builds unchanged).
+- `vote(subtitle: str, whisper: str, asr2: str, agree: float = 0.05) -> str`: "subtitle" | "spoken" | "drop", CERs on `for_cer` text.
+- `second_asr.py bench|run`: `bench` scores candidate models on clips whose subtitle is trusted (Whisper CER 0) and on `high_cer` rejects; `run --ids FILE` writes `data/dataset/asr2.jsonl` `{id, model, text}` (shards, resumable).
+- `recover_clips.py`: applies `vote` to `high_cer` rejects ≥ 1.5 s; winners go to a new root `data/dataset_recovered` (metadata rows with the training text, trims from the segment results, speaker = nearest existing ECAPA cluster centre above 0.70 else dropped), then emotions, audit and soundtags run there. Existing roots stay untouched, so stage 1 builds stay byte-identical; the manifest reads it with `--recovered-root`.
+
+- [ ] **Step 1 (Mac):** TDD `keep_short_labelled` and `--label-min-dur`; stage 1 build byte-identical.
+- [ ] **Step 2:** the `lclean` selection takes `--max-cer 0.20 --label-min-dur 1.5` before it starts; preview counts per label in `stage2_results.md`.
+- [ ] **Step 3 (GPU, small):** `second_asr.py bench` on 300 trusted clips + 300 `high_cer` rejects; candidates `facebook/seamless-m4t-v2-large`, `facebook/mms-1b-all` (adapter `tur`), Meta Omnilingual ASR if it installs. Pick the lowest CER on the trusted set; record agreement rates (with subtitle / with Whisper / neither) and the projected recovery.
+- [ ] **Step 4:** TDD `vote`; `second_asr.py run` on the `high_cer` rejects ≥ 1.5 s (~67k); `recover_clips.py`; emotions + audit on `dataset_recovered`; a second `lclean` pass cleans its labelled clips (finished clips are skipped).
+
+Expected: per style, the restored-only build of Task 5 gains clips from short lines, from the 5–20% band and from recovered lines; numbers per source in `stage2_results.md`.
 
 ---
 
