@@ -638,3 +638,6 @@ clip, continuation, guidance), not from the LoRA; the number gains (word errors,
 quality, so the adapter can only pull towards it. Open: a blind round of untrained + clip B vs Trendyol to confirm the
 base model with this setting is the best stage 1 system; stage 2 (styles, sound tags) is where training has to earn
 its place, since the base model cannot do those.
+- Blind round 6 page: `data/listening_sample/stage1_ab_blind6.html` (builder `data/ab_page6.py` on astrobot):
+  untrained VoxCPM2 with clip B continue + clone, cfg 3.0 (`s0_voxcpm2_contB_r6`) vs Trendyol on Freya 100-119
+  (`data/eval/r6_sentences.txt`), unused in rounds 1-5. The page calls our side "our best setting so far".
