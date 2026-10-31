@@ -1,5 +1,15 @@
 # Stage 1 results (2026-10-29, astrobot RTX 5090)
 
+**Closed 2026-10-31.** Passed with run 4 (`~/tts/checkpoints/stage1_v4/step_0002629`): blind preference 16/20 over
+Trendyol-TTS, UTMOS p10 and voice consistency above zero-shot; Freya WER 1.1% vs Trendyol 0.4% misses its gate by
+0.2 pt (3 of 7 error sentences are ASR spelling), accepted by the listener. Inference setting: adapter on the language
+model only (`--lora-scale 1,0`), continue from and clone `data/eval/refs/ref_male_b.wav`, cfg 3.0, no voice-design
+prompt. Lessons for stage 2:
+- Train clean clips only (run 4); the cloned clip sets voice quality (a husky clip gives a husky voice).
+- The DiT (acoustic decoder) half of the LoRA adds robotic bits on some words, likely learnt from the Sidon-restored
+  training audio; the language-model half carries the word and prosody gain. Consider `enable_dit: false`.
+- Longer training does not help clearness; the clean Sidon set is ~47 h unique audio.
+
 Run: `scripts/train_stage1.sh` with `training/voxcpm/stage1_prosody_lora.yaml` (LoRA r64/a64 on LM + DiT, lr 1e-4,
 batch 4 × grad accum 4, 2626 steps = 1 epoch of the 60 h clean-wav slice; 23:50 → 00:19, ~0.67 s/step, peak ~28 GB).
 Scoring: `scripts/score_stage1.sh` (voice-design prompt as in stage 0). Val loss/diff 1.059 (step 0) → 1.053 (end):
