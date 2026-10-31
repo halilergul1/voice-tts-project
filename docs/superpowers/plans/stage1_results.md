@@ -599,3 +599,25 @@ Exit gate with `--lora-scale 1,0`, clip B, continue + clone, cfg 3.0:
 
 Best stage 1 setting: run 4 end (`step_0002629`), adapter on the language model only, continue from and clone
 `data/eval/refs/ref_male_b.wav`, cfg 3.0, no voice-design prompt.
+
+## Run 5a (2026-10-31): language-model-only LoRA, all restored clips
+
+Correction to the closing notes: the restored clips that pass the tier total 85.5 h of unique audio (merged clips
+replace their members; the 47 h figure counted single clips only), so run 4's 60 h cap left 25 h unused.
+`training/voxcpm/stage1_run5a_lm.yaml`: `enable_dit: false`, r 64 / alpha 64, data `data/voxcpm_v5a` (85.55 h,
+train 59,131 / val 1,158; 2 of the 50 scored corpus sentences are in this build's train), 3696 steps, 39 min.
+Scored with run 4's winning setting minus `--lora-scale` (there is no DiT half): clip B continue + clone, cfg 3.0.
+
+| run | Freya WER | PESQ (p10) | UTMOS (p10) | female-range | consistency | CPPS | syl/s | corpus WER | corpus syl/s |
+|---|---|---|---|---|---|---|---|---|---|
+| Trendyol | 0.4% | 3.85 (3.60) | 3.01 (2.67) | 0% | 0.79 | 10.20 | 6.38 | 2.5% | 5.89 |
+| run 4 language only | 1.1% | 4.22 (3.99) | 3.08 (2.75) | 3% | 0.83 | 10.70 | 7.30 | 2.6% | 6.90 |
+| run 5a step 2000 | 0.7% | 4.10 (3.88) | 3.05 (2.72) | 11% | 0.83 | 10.40 | 6.75 | 1.4% | 5.98 |
+| run 5a end (3696) | 0.8% | 4.14 (3.86) | 3.08 (2.77) | 5% | 0.83 | 10.22 | 7.00 | 2.8% | 6.37 |
+
+- Run 5a end meets the Freya WER gate (0.8% vs 0.4%, within 0.5 pt), so all four number gates pass pending a
+  blind round; the pace is closer to Trendyol than run 4 (7.00 vs 7.30 syl/s).
+- Clearness drops a little (CPPS 10.22 vs 10.70, Trendyol level); listen for whether training the language part
+  alone brings robotic or thin bits back. Step 2000 drifts to a high voice in 11% of sentences.
+- Listening page: `data/listening_sample/stage1_run5a.html` (8 robotic-probe sentences: untrained, run 4 language
+  only, run 5a step 2000, run 5a end). Run 5b (more cleaned audio, `scripts/server_more_clean.sh`) is running.
