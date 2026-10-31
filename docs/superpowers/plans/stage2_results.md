@@ -64,3 +64,19 @@ cleaning:
 
 147,311 labelled clips, 170.8 h. Cough (161 clips) now passes `--min-tag 150`; it is cleaned but not in scope, so
 the stage 2 build passes `--tags-exclude cough`. The `lclean` job uses this selection.
+
+### Second recogniser bench (Task 3D step 3, 2026-11-01)
+
+`scripts/second_asr.py bench`, 300 trusted clips (Whisper = subtitle) and 300 `high_cer` rejects (the span Whisper
+aligned, Whisper's text of that span), sharing the GPU with run 5b's cleaning:
+
+| model | trusted CER median / 90th pct | rejects at agree 0.05: subtitle / spoken / drop | at agree 0.15 | clips/s |
+|---|---|---|---|---|
+| Seamless M4T v2 large | 0.020 / 0.157 | 1% / 6% / 93% | 5% / 15% / 80% | 6.1 |
+| MMS 1b-all (tur) | 0.079 / 0.228 | 0% / 3% / 96% | 1% / 9% / 90% | 36.7 |
+
+The rejects are hard audio: both recognisers disagree with each other and with the subtitle on most of them (e.g.
+subtitle "Diğer taraflara bakıyorsun", Whisper "diğer taraftan", Seamless "yürürler yürürler"), and the aligned span
+often misses words the subtitle has at its edges. At a strict bar the vote rescues ~7% (~4.7k of 67k lines); at
+Seamless's own 90th-percentile error (0.15) ~20% (~13k), but then a "spoken" text may carry up to 15% recogniser
+errors. Against steps 1–2 (+25k angry, +30k happy, +26k sad clips) this is small and noisy.
