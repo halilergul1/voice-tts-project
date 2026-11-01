@@ -12,7 +12,8 @@ from the setting. Lessons for stage 2:
   high-voice drift) were not audible.
 - Stage 2 has to teach what the base model cannot do (styles, sound tags) while keeping its sound: train the
   language-model part only, and gate every run with a blind round against the untrained model with this setting.
-- Restored clips passing the tier: 85.5 h; `scripts/server_more_clean.sh` cleans more (run 5b slice, 160 h raw).
+- Restored clips passing the tier: 85.5 h before run 5b, 193.9 h after `scripts/server_more_clean.sh` cleaned a
+  160 h raw slice (run 5b trained on a 150 h slice of it, see the end of this file).
 
 Run: `scripts/train_stage1.sh` with `training/voxcpm/stage1_prosody_lora.yaml` (LoRA r64/a64 on LM + DiT, lr 1e-4,
 batch 4 × grad accum 4, 2626 steps = 1 epoch of the 60 h clean-wav slice; 23:50 → 00:19, ~0.67 s/step, peak ~28 GB).
@@ -648,3 +649,33 @@ its place, since the base model cannot do those.
 
 Untrained VoxCPM2 + clip B (continue + clone, cfg 3.0) vs Trendyol-TTS, Freya 100-119: ours 18 / Trendyol 0 /
 same 2. Stage 1 closes with this setting and no adapter (see the top of this file).
+
+## Run 5b (2026-11-01): language-model-only LoRA, 150 h of restored clips
+
+Same as run 5a (`enable_dit: false`, r 64 / alpha 64, batch 4 x accum 4, lr 1e-4, one epoch) on more data:
+`scripts/server_more_clean.sh` separated, context-cut and Sidon-restored the clips of a 160 h raw slice of the strict
+tier (`data/voxcpm_rawslice_160h`), which lifts the restored pool that passes the gates to 193.9 h of unique audio.
+`data/voxcpm_v5b` is a 150.03 h slice of it (98,552 clips, 40% series cap; 98,801 train rows with replay), 6176 steps,
+config `training/voxcpm/stage1_run5b_lm.yaml` (made from the run 5a config by `data/run5b_chain.sh` on astrobot).
+The cleaning stopped once at the context-cut separation: one empty cut made audio-separator raise
+BatchSeparationError and kill its shard; fixed in 0bca1b5 (failed clips keep the original), then resumed.
+
+Scored with clip B continue + clone, cfg 3.0, prompt '' (Freya100 / corpus 50):
+
+| run | PESQ | UTMOS (p10) | WER | high voice | syl/s | HNR | CPPS |
+|---|---|---|---|---|---|---|---|
+| Trendyol | 3.85 / 3.83 | 3.01 (2.67) / 3.04 (2.55) | 0.4% / 2.5% | 0% / 0% | 6.38 | 11.56 | 10.20 |
+| run 4 language only | 4.22 / 4.18 | 3.08 (2.75) / 3.07 (2.74) | 1.1% / 2.6% | 3% / 4% | 7.30 | 11.31 | 10.70 |
+| run 5a end (3696) | 4.14 / 4.12 | 3.08 (2.77) / 3.06 (2.75) | 0.8% / 2.8% | 5% / 8% | 7.00 | 11.17 | 10.22 |
+| run 5b step 3000 | 4.14 / 4.13 | 3.07 (2.71) / 3.09 (2.68) | 0.9% / 1.0% | 14% / 12% | 6.87 | 11.23 | 10.27 |
+| run 5b end (6176) | 4.10 / 4.09 | 3.13 (2.74) / 3.10 (2.54) | 0.9% / 0.4% | 10% / 10% | 6.91 | 11.33 | 10.43 |
+
+(rate, HNR, CPPS on Freya100.)
+
+- Corpus word errors fall to 0.4% (Trendyol 2.5%, run 5a 2.8%). Not from leakage: 2 of the 50 scored corpus
+  sentences are in the 5b train set, the same 2 as for 5a (the other matches are in the val split only). 50 short
+  sentences are about 400 words, so 0.4% vs 2.8% is about 2 vs 11 words wrong.
+- UTMOS is the highest of all runs on Freya100 (3.13), PESQ a little lower; high-voice drift doubles (10% vs 5%).
+- Blind round 7 page: `data/listening_sample/stage1_ab_blind7.html` (builder `data/ab_page7.py` on astrobot): run 5b
+  end (`s1v5b_end_r7`) vs untrained VoxCPM2 with the same clip and settings (`s0_voxcpm2_contB_r7`) on Freya 120-139
+  (`data/eval/r7_sentences.txt`), unused in rounds 1-6. Run 5b replaces the untrained setting only at >= 12 of 20.
