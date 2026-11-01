@@ -408,7 +408,7 @@ The TRT narrator says what characters feel ("Asya üzgün haliyle Ömer'in yanı
 - `transcribe_narration.py --source trt [--limit-episodes N]`: per episode, gaps ≥ 1.5 s between subtitle cues (`subs.srt`), faster-whisper `deepdml/faster-whisper-large-v3-turbo-ct2`, `language="tr"`, word timestamps, on the original audio; drops `ttsdata.eventverify.HALLUCINATION_RE` matches, "izlediğiniz için teşekkür", "sesli betimleme". Output `data/dataset/narration.jsonl` `{uid, start, end, text}`, resumable per episode.
 - `narration_labels.py` → `data/dataset/narration_styles.jsonl` `{id, style, source, desc, dt}` and `data/dataset/NARRATION.md` (descriptions per emotion, linked lines per emotion, agreement with emotion2vec+ per class).
 
-- [ ] **Step 1: Write the failing tests** (`tests/test_narration.py`)
+- [x] **Step 1: Write the failing tests** (`tests/test_narration.py`)
 
 ```python
 from ttsdata.narration import parse_description, name_clusters, link_lines
@@ -433,7 +433,15 @@ def test_link_lines_window_and_cluster():
     assert link_lines({"name": None, "end": 100.0}, lines, None) == []     # no line starts within 5 s after
 ```
 
-- [ ] **Step 2: Run, implement `ttsdata/narration.py`, run again**
+- [x] **Step 2: Run, implement `ttsdata/narration.py`, run again** (2026-11-02; also `scripts/transcribe_narration.py` and
+  `scripts/narration_labels.py`, smoke-tested on one local episode and on synthetic data). Rulings: the happy stem is
+  `gülüms` ("gülümse-" narrows to "gülümsüyor", the commonest form); a word matching both a crying form and a sad
+  stem is crying; one row per emotion per sentence; a capitalised word inside a sentence is a name, never an emotion
+  ("Sevinç", "Neşe"); `NOT_EMOTION` = korkuluk, bağırsak; negation also covers -mıyor, -madan, -mamak, -sız and a
+  stem vowel before -ma; spans with "betimle" / "izlediğiniz için" (the describer's intro / outro) are dropped. Gaps
+  come from speech cues only (`clean_cue`), lose 0.2 s next to a cue, and all gaps of an episode are transcribed in
+  one batched faster-whisper pass (VAD on), words handed back with `asr.split_pack_result`. Names resolve case-folded,
+  full name first, else its first word; links go to `data/dataset` lines only (not `dataset_long` merges).
 
 Run: `.venv/bin/python -m pytest tests/test_narration.py -v` (FAIL `ModuleNotFoundError`, then 3 PASS). Episode times: subtitle lines and clips carry episode start times (`orig_start` style fields in `metadata.jsonl`); use the same field `extend-events` uses.
 
@@ -524,9 +532,14 @@ Plain baseline P0 = S1 on the same sentences. Tags are tried in P1 and P2 with t
 - Create: `scripts/probe_stage2.sh` (loops over setups × labels × sets with `eval_tts.py all` then `score_styles.py`; runs named `s2p_<setup>_<label>_<set>`; done marker `data/logs/s2_probe_done`)
 - Create: `docs/superpowers/plans/stage2_results.md` (probe table and decision)
 
-- [ ] **Step 1: Write the sentence files and pick the P4 clips** (Mac for Freya text, astrobot for the matched text and the clips).
+- [x] **Step 1: Write the sentence files and pick the P4 clips** (Mac for Freya text, astrobot for the matched text and the clips).
+  2026-11-02: `data/eval/` is gitignored, so the sentence files are added with `git add -f`; also `tags_plain.txt` (P0 on
+  the tag sentences) and `tags_<tag>_en.txt`. P4: three male candidates per style (one per speaker) in
+  `data/listening_sample/style_refs.html`; the user's pick is copied to `data/eval/refs/style_<label>.wav`, and
+  `probe_stage2.sh` skips P4 until then.
 
-- [ ] **Step 2: Ask the user for the GPU, check `tmux ls`, launch `scripts/probe_stage2.sh` in tmux `s2probe`**
+- [x] **Step 2: Ask the user for the GPU, check `tmux ls`, launch `scripts/probe_stage2.sh` in tmux `s2probe`** (launched
+  2026-11-02 00:50 after the user's go-ahead; P0-P3 and tags first)
 
 Expected: about 1,000 short clips; `style_summary.md` rows for every run.
 
