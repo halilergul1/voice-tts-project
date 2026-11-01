@@ -80,3 +80,35 @@ subtitle "Diğer taraflara bakıyorsun", Whisper "diğer taraftan", Seamless "y�
 often misses words the subtitle has at its edges. At a strict bar the vote rescues ~7% (~4.7k of 67k lines); at
 Seamless's own 90th-percentile error (0.15) ~20% (~13k), but then a "spoken" text may carry up to 15% recogniser
 errors. Against steps 1–2 (+25k angry, +30k happy, +26k sad clips) this is small and noisy.
+
+### Short labelled lines: listening check (Task 3D, 2026-11-01)
+
+Blind page, 80 clips of 1.5–3 s: 20 per emotion2vec+ label at the build's cuts, 20 with neutral ≥ 0.9 as a control
+(`calibration/short_emotion_check_2026-11-01.json`). The listener heard the label on:
+
+| label | short clips (this check) | longer clips at the same cut (EMOTION_CALIBRATION.md) |
+|---|---|---|
+| angry | 7 / 20 (35%) | 0.92 |
+| happy | 5 / 19 (26%) | 0.79 |
+| sad | 9 / 20 (45%) | 0.79 |
+| neutral (control) | 16 / 20 (80%) | 0.93 |
+
+Most short "emotional" clips sound neutral (angry 11, happy 11, sad 9 of 20 heard as neutral). The automatic labels
+do not hold under 3 s, so `--label-min-dur` is not used for them; emotional lines keep the 3 s minimum. (A human
+label, e.g. the narrator's in Task 3B, may still justify short lines later.)
+
+Selection for cleaning with `--max-cer 0.20` only (3 s minimum), before cleaning:
+
+| label | before 3D | with 3D |
+|---|---|---|
+| happy | 29,050 (47.1 h) | 39,533 (63.5 h) |
+| sad | 20,009 (31.7 h) | 25,173 (39.6 h) |
+| angry | 13,775 (19.8 h) | 17,868 (25.3 h) |
+| laugh | 2,135 | 2,878 |
+| breath | 468 | 568 |
+| cry | 278 | 344 |
+
+The `lclean` run started at 07:56 (after run 5b's cleaning failed) with the earlier selection that still had the
+short lines, so it also separates them; that costs GPU time only. When run 5b was restarted on `data/dataset` at
+13:15, `lclean` was paused after its `sep_dataset` step (SIGSTOP) and resumes when the `run5b` session ends, so the
+two never run the same step on one folder.

@@ -368,7 +368,7 @@ Most emotional clips never reach the tier, and not because of audio: the music /
 | > 20% (`high_cer` rejects) | second recogniser (another model family than Whisper) votes: agrees with the subtitle (≤ 5%) → subtitle; agrees with Whisper and not the subtitle → what is spoken; neither → drop |
 | `multi_speaker`, `unaligned`, `no_speech`, `credits` | dropped |
 
-Labelled lines of 1.5–3 s join the tier (`--label-min-dur 1.5`); unlabelled rows keep 3 s. Before training on them, a listening check of 30 short clips per style (Task 5) confirms the emotion labels hold on short clips.
+Labelled lines of 1.5–3 s join the tier (`--label-min-dur 1.5`); unlabelled rows keep 3 s. Before training on them, a listening check of 30 short clips per style (Task 5) confirms the emotion labels hold on short clips. **Result (2026-11-01): they do not** (the listener heard the automatic label on 7/20 angry, 5/19 happy, 9/20 sad short clips; most sound neutral), so automatic labels keep the 3 s minimum and the selection uses `--max-cer 0.20` only.
 
 **Files:**
 - Modify: `ttsdata/manifest.py` (`keep_short_labelled`), `scripts/make_voxcpm_manifest.py` (`--label-min-dur`), `scripts/server_label_clean.sh` (selection flags)

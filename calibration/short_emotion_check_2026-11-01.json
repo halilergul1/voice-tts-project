@@ -1,0 +1,492 @@
+{
+ "date": "2026-11-01",
+ "what": "1.5-3 s clips, emotion2vec+ label (angry 0.70 / sad 0.85 / happy 0.99) vs blind listener; neutral = e2v neutral >= 0.9 control",
+ "agree": {
+  "angry": "7/20",
+  "happy": "5/19",
+  "sad": "9/20",
+  "neutral": "16/20"
+ },
+ "items": [
+  {
+   "card": 1,
+   "clip": "1_ZuYj6cXz8_00801",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 2,
+   "clip": "n4NhvxPxpuw_00339",
+   "label": "angry",
+   "heard": "angry"
+  },
+  {
+   "card": 3,
+   "clip": "5mPWx2XUizU_01886",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 4,
+   "clip": "BmCoWq7c88E_01483",
+   "label": "neutral",
+   "heard": "sad"
+  },
+  {
+   "card": 5,
+   "clip": "m19Yjo2tnTE_00482",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 6,
+   "clip": "Kjw9SWuqcZI_00672",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 7,
+   "clip": "44e7LklVE-A_00534",
+   "label": "neutral",
+   "heard": "sad"
+  },
+  {
+   "card": 8,
+   "clip": "W7CwD5Tc6UI_00036",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 9,
+   "clip": "WGgBJT-trks_00327",
+   "label": "angry",
+   "heard": "angry"
+  },
+  {
+   "card": 10,
+   "clip": "xyO_lSbMk6U_00458",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 11,
+   "clip": "14Y70M7ypBo_01014",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 12,
+   "clip": "4aH_hvFGx2Q_01577",
+   "label": "angry",
+   "heard": "sad"
+  },
+  {
+   "card": 13,
+   "clip": "wZdpf7u11S0_01160",
+   "label": "happy",
+   "heard": "happy"
+  },
+  {
+   "card": 14,
+   "clip": "BK4b6THayMg_00007",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 15,
+   "clip": "gQuYCkgawSo_01085",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 16,
+   "clip": "1f77ar1m7Ks_01654",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 17,
+   "clip": "s6vN0Sl2F1c_01524",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 18,
+   "clip": "xdLkaxme9Ec_01821",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 19,
+   "clip": "XV1jZdke3dQ_01203",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 20,
+   "clip": "7bp9TkiIwXk_00746",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 21,
+   "clip": "q0rNxOygL7g_01497",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 22,
+   "clip": "M4jiPuvU_ww_00331",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 23,
+   "clip": "lkkPhoCgutA_00778",
+   "label": "angry",
+   "heard": "angry"
+  },
+  {
+   "card": 24,
+   "clip": "WanE73aHenM_00223",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 25,
+   "clip": "EM3IvLkskLc_01262",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 26,
+   "clip": "Eb-NxcBHNsI_00023",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 27,
+   "clip": "zcSUNWNxFPc_00855",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 28,
+   "clip": "eJdWTp7DDf0_02330",
+   "label": "happy",
+   "heard": "sad"
+  },
+  {
+   "card": 29,
+   "clip": "oPIxVs5VmUg_01464",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 30,
+   "clip": "Q6GR7X7d8k4_00689",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 31,
+   "clip": "esrefruya_ep005_01032",
+   "label": "angry",
+   "heard": "angry"
+  },
+  {
+   "card": 32,
+   "clip": "q0rNxOygL7g_00984",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 33,
+   "clip": "wZJ1m3PhtLM_00595",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 34,
+   "clip": "n19Q9kKmNKw_01512",
+   "label": "happy",
+   "heard": "happy"
+  },
+  {
+   "card": 35,
+   "clip": "YXMgrpbXFTM_00520",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 36,
+   "clip": "LSYHLGiBhDE_01677",
+   "label": "neutral",
+   "heard": "angry"
+  },
+  {
+   "card": 37,
+   "clip": "esrefruya_ep010_01650",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 38,
+   "clip": "EM3IvLkskLc_00385",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 39,
+   "clip": "wh1vhyVvjDc_00362",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 40,
+   "clip": "I3kpRh9lT70_01508",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 41,
+   "clip": "me5wppkQiqY_00625",
+   "label": "happy",
+   "heard": "happy"
+  },
+  {
+   "card": 42,
+   "clip": "ewyrVSWwBKY_00171",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 43,
+   "clip": "aHe4Mr-B2es_00549",
+   "label": "happy",
+   "heard": "angry"
+  },
+  {
+   "card": 44,
+   "clip": "iMIQeECfdwE_00899",
+   "label": "angry",
+   "heard": "angry"
+  },
+  {
+   "card": 45,
+   "clip": "jN0HiB_e3kI_00234",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 46,
+   "clip": "oLcVhrLMRdA_00755",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 47,
+   "clip": "A-wh1M8JB6Q_00671",
+   "label": "angry",
+   "heard": "angry"
+  },
+  {
+   "card": 48,
+   "clip": "g6yvs1f4S1s_01260",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 49,
+   "clip": "kOq5PS8QmmI_00330",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 50,
+   "clip": "W263ryKMPH0_00678",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 51,
+   "clip": "-KE-F2yhuoI_00647",
+   "label": "angry",
+   "heard": "angry"
+  },
+  {
+   "card": 52,
+   "clip": "GAYo4cMNNNc_00358",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 53,
+   "clip": "zJ5ZdlL2bEM_01737",
+   "label": "happy",
+   "heard": "happy"
+  },
+  {
+   "card": 54,
+   "clip": "qe8TjfIqZ8Y_00562",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 55,
+   "clip": "B13dJjhsIBc_01069",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 56,
+   "clip": "s0zbkx_9T0M_01262",
+   "label": "angry",
+   "heard": "sad"
+  },
+  {
+   "card": 57,
+   "clip": "HeXezF4VrJ8_00559",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 58,
+   "clip": "1qiS6269JY4_01870",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 59,
+   "clip": "wZJ1m3PhtLM_01503",
+   "label": "happy",
+   "heard": "sad"
+  },
+  {
+   "card": 60,
+   "clip": "nyliOKM_9J4_00255",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 61,
+   "clip": "aDJZeb4YKXg_00474",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 62,
+   "clip": "CUBXGTZPSbc_01410",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 63,
+   "clip": "nugB_f8-Bxc_00045",
+   "label": "happy",
+   "heard": "-"
+  },
+  {
+   "card": 64,
+   "clip": "a-6rXU0wn1k_01906",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 65,
+   "clip": "HMrN12C4JwM_00090",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 66,
+   "clip": "Xgp1Sk_QBFA_00395",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 67,
+   "clip": "1VBTrS1610k_00445",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 68,
+   "clip": "jk6QN4ubPXY_00523",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 69,
+   "clip": "CbkPKh8ETYc_00570",
+   "label": "sad",
+   "heard": "angry"
+  },
+  {
+   "card": 70,
+   "clip": "OcbiPC-SeHQ_00793",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 71,
+   "clip": "19cghT0STg4_01278",
+   "label": "happy",
+   "heard": "neutral"
+  },
+  {
+   "card": 72,
+   "clip": "xm82b7ewqHM_00151",
+   "label": "sad",
+   "heard": "sad"
+  },
+  {
+   "card": 73,
+   "clip": "zSLNUwcbqqo_02023",
+   "label": "happy",
+   "heard": "happy"
+  },
+  {
+   "card": 74,
+   "clip": "58mdjZ1oGyM_02333",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 75,
+   "clip": "--NBTNhKbN4_01546",
+   "label": "sad",
+   "heard": "happy"
+  },
+  {
+   "card": 76,
+   "clip": "4YYK06wV52w_01931",
+   "label": "angry",
+   "heard": "neutral"
+  },
+  {
+   "card": 77,
+   "clip": "6nP_GuR04Gs_00655",
+   "label": "sad",
+   "heard": "neutral"
+  },
+  {
+   "card": 78,
+   "clip": "Hk32M3EY7PY_00090",
+   "label": "neutral",
+   "heard": "neutral"
+  },
+  {
+   "card": 79,
+   "clip": "V9LhxvG1GWg_00110",
+   "label": "neutral",
+   "heard": "sad"
+  },
+  {
+   "card": 80,
+   "clip": "G7eFHY90kFs_00273",
+   "label": "sad",
+   "heard": "neutral"
+  }
+ ]
+}
