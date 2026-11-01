@@ -88,3 +88,28 @@ def test_ids_to_separate_redoes_kept_originals_once():
     assert ids_to_separate(ids, done, quality, redo_original=True) == ["b", "c", "d"]
     # a restart skips clips a shard file already holds from this run
     assert ids_to_separate(ids, done, quality, redo_original=True, in_shards={"b"}) == ["c", "d"]
+
+
+def test_separate_batch_keeps_the_outputs_of_the_inputs_that_worked():
+    from ttsdata.separation import separate_batch
+
+    class PartialFailure(RuntimeError):  # shaped like audio-separator's BatchSeparationError
+        def __init__(self, ok, failures):
+            super().__init__("Separation failed for 1 input(s)")
+            self.successful_files, self.failures = ok, failures
+
+    class Sep:
+        def __init__(self, exc=None):
+            self.exc = exc
+
+        def separate(self, paths):
+            if self.exc:
+                raise self.exc
+            return [f"{p}_(Vocals).wav" for p in paths]
+
+    assert separate_batch(Sep(), ["a", "b"]) == ["a_(Vocals).wav", "b_(Vocals).wav"]
+    exc = PartialFailure(["a_(Vocals).wav", "a_(Instrumental).wav"], [("b", ValueError("empty output"))])
+    assert separate_batch(Sep(exc), ["a", "b"]) == ["a_(Vocals).wav", "a_(Instrumental).wav"]
+    import pytest
+    with pytest.raises(OSError):  # any other error still stops the run
+        separate_batch(Sep(OSError("disk full")), ["a"])

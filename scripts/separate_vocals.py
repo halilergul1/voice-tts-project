@@ -31,7 +31,8 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.separation import (alias, choose_source, event_base_ids, ids_to_separate, loudness_normalize,  # noqa: E402
-                                manifest_ids, merge_separation, relative_loudness_db, shard, stems_for)
+                                manifest_ids, merge_separation, relative_loudness_db, separate_batch, shard,
+                                stems_for)
 
 DEFAULT_MODEL = "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
 
@@ -143,7 +144,7 @@ def main() -> int:
                 links.mkdir(exist_ok=True)
                 for j, cid in enumerate(ids):
                     os.symlink((src_dir / f"{cid}.wav").resolve(), links / f"{alias(j)}.wav")
-                outputs = sep.separate([str(links / f"{alias(j)}.wav") for j in range(len(ids))])
+                outputs = separate_batch(sep, [str(links / f"{alias(j)}.wav") for j in range(len(ids))])
                 outputs = [str(tmp / f) if not Path(f).is_absolute() else f for f in outputs]
                 for j, cid in enumerate(ids):
                     y, sr = _read(src_dir / f"{cid}.wav")

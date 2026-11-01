@@ -121,3 +121,19 @@ def stems_for(output_files: list[str], key: str):
         elif "(Instrumental)" in name:
             ins = Path(f)
     return voc, ins
+
+
+def separate_batch(sep, paths: list[str]) -> list[str]:
+    """sep.separate(paths), but when only some inputs fail (audio-separator's BatchSeparationError, which carries
+    successful_files), return the outputs of the rest: the failed clips then have no stems and are kept as the
+    original, so one unreadable clip does not stop a run. Any other error is raised."""
+    try:
+        return sep.separate(paths)
+    except Exception as e:
+        ok = getattr(e, "successful_files", None)
+        if ok is None:
+            raise
+        failed = [str(p) for p, _ in getattr(e, "failures", [])]
+        print(f"[warn] separation failed for {len(failed)} of {len(paths)} inputs, keeping them as original: "
+              f"{', '.join(failed)}")
+        return list(ok)
