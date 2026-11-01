@@ -8,7 +8,8 @@ selection separated earlier do not go on to Sidon.
 
 Writes <root>/<out>/<id>.wav (24 kHz mono) and <root>/ctx.jsonl rows {id, lead, dur}: lead = seconds of context
 before the clip, dur = the clip's own length. Each episode is decoded once. Resumable: ids already in ctx.jsonl with a
-wav are skipped.
+wav are skipped, and so are clips Sidon already restored (a wav in <root>/<--restored>), so the context folders can be
+deleted after restoration.
 """
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.restoration import context_span, episode_audio  # noqa: E402
+from ttsdata.restoration import context_span, episode_audio, ids_to_cut  # noqa: E402
 from ttsdata.separation import manifest_clip_ids  # noqa: E402
 
 SR = 24_000
@@ -64,6 +65,7 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0, help="first N clips only (testing)")
     ap.add_argument("--manifests", default="", help="comma-separated manifests: only the separated clips they use")
+    ap.add_argument("--restored", default="wavs_sidon", help="Sidon output folder: clips with a wav there are skipped")
     a = ap.parse_args()
     root, raw = Path(a.root), Path(a.raw)
     out = root / a.out
@@ -77,10 +79,13 @@ def main() -> int:
     if a.limit:
         meta = meta[: a.limit]
     ctx_file = root / "ctx.jsonl"
-    done = {r["id"] for r in _load(ctx_file) if (out / f"{r['id']}.wav").exists()}
+    cut = {r["id"] for r in _load(ctx_file) if (out / f"{r['id']}.wav").exists()}
+    restored = {p.stem for p in (root / a.restored).glob("*.wav")}
+    todo = set(ids_to_cut([r["id"] for r in meta], cut, restored))
+    done = [r["id"] for r in meta if r["id"] not in todo]
     by_ep: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for r in meta:
-        if r["id"] not in done:
+        if r["id"] in todo:
             by_ep[(r["source"], r["uid"])].append(r)
     jobs, missing = [], 0
     for (source, uid), clips in by_ep.items():

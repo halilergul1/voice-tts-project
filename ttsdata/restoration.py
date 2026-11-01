@@ -21,6 +21,12 @@ def episode_audio(ep_dir: Path) -> Path | None:
     return next((p for p in sorted(Path(ep_dir).glob("audio.*")) if p.suffix.lower() in AUDIO_EXTS), None)
 
 
+def ids_to_cut(ids: list[str], cut: set[str], restored: set[str]) -> list[str]:
+    """Clips that still need a context cut: not cut yet and not restored by Sidon yet. Skipping restored clips lets
+    wavs_ctx / wavs_ctx_clean be deleted once restoration is done without a later run redoing those clips."""
+    return [i for i in ids if i not in cut and i not in restored]
+
+
 def context_span(start: float, end: float, ctx: float, total: float) -> tuple[float, float, float]:
     """(t0, t1, lead): the clip widened by ctx seconds on each side, clamped to the episode; lead = start - t0."""
     t0 = max(0.0, start - ctx)

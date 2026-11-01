@@ -67,3 +67,11 @@ def test_word_check_falls_back_only_when_sidon_loses_words():
     assert word_check(0.36, 0.0, clean) == ("fallback_words", 0.30)  # 0.06 worse than the clean clip
     assert word_check(0.33, 0.0, clean) == ("sidon", 0.30)  # within 0.05 of the clean clip
     assert word_check(0.12, None, lambda: 0.0) == ("fallback_words", 0.0)  # no build CER: treated as 0
+
+
+def test_ids_to_cut_skips_clips_already_cut_or_already_restored():
+    from ttsdata.restoration import ids_to_cut
+    # a clip Sidon already restored needs no new context cut, so wavs_ctx / wavs_ctx_clean can be deleted afterwards
+    # without a later run cutting, separating and restoring it again
+    assert ids_to_cut(["a", "b", "c", "d"], cut={"a"}, restored={"b", "x"}) == ["c", "d"]
+    assert ids_to_cut(["a"], cut=set(), restored=set()) == ["a"]
