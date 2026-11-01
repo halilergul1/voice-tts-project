@@ -381,10 +381,10 @@ Labelled lines of 1.5–3 s join the tier (`--label-min-dur 1.5`); unlabelled ro
 - `second_asr.py bench|run`: `bench` scores candidate models on clips whose subtitle is trusted (Whisper CER 0) and on `high_cer` rejects; `run --ids FILE` writes `data/dataset/asr2.jsonl` `{id, model, text}` (shards, resumable).
 - `recover_clips.py`: applies `vote` to `high_cer` rejects ≥ 1.5 s; winners go to a new root `data/dataset_recovered` (metadata rows with the training text, trims from the segment results, speaker = nearest existing ECAPA cluster centre above 0.70 else dropped), then emotions, audit and soundtags run there. Existing roots stay untouched, so stage 1 builds stay byte-identical; the manifest reads it with `--recovered-root`.
 
-- [ ] **Step 1 (Mac):** TDD `keep_short_labelled` and `--label-min-dur`; stage 1 build byte-identical.
-- [ ] **Step 2:** the `lclean` selection takes `--max-cer 0.20 --label-min-dur 1.5` before it starts; preview counts per label in `stage2_results.md`.
-- [ ] **Step 3 (GPU, small):** `second_asr.py bench` on 300 trusted clips + 300 `high_cer` rejects; candidates `facebook/seamless-m4t-v2-large`, `facebook/mms-1b-all` (adapter `tur`), Meta Omnilingual ASR if it installs. Pick the lowest CER on the trusted set; record agreement rates (with subtitle / with Whisper / neither) and the projected recovery.
-- [ ] **Step 4:** TDD `vote`; `second_asr.py run` on the `high_cer` rejects ≥ 1.5 s (~67k); `recover_clips.py`; emotions + audit on `dataset_recovered`; a second `lclean` pass cleans its labelled clips (finished clips are skipped).
+- [x] **Step 1 (Mac):** TDD `keep_short_labelled` and `--label-min-dur`; stage 1 build byte-identical.
+- [x] **Step 2:** the `lclean` selection takes `--max-cer 0.20 --label-min-dur 1.5` before it starts; preview counts per label in `stage2_results.md`.
+- [x] **Step 3 (GPU, small):** `second_asr.py bench` on 300 trusted clips + 300 `high_cer` rejects; candidates `facebook/seamless-m4t-v2-large`, `facebook/mms-1b-all` (adapter `tur`), Meta Omnilingual ASR if it installs. Pick the lowest CER on the trusted set; record agreement rates (with subtitle / with Whisper / neither) and the projected recovery.
+- [ ] ~~**Step 4:**~~ **Dropped (user, 2026-11-01):** the bench rescues ~7% of the rejects at a 5% bar (~4.7k of 67k lines), ~20% at 15% with up to 15% recogniser errors in the text; small and noisy next to steps 1–2, and it needs a new data root. `vote` and `second_asr.py` stay in the repo. Was: TDD `vote`; `second_asr.py run` on the `high_cer` rejects ≥ 1.5 s (~67k); `recover_clips.py`; emotions + audit on `dataset_recovered`; a second `lclean` pass cleans its labelled clips (finished clips are skipped).
 
 Expected: per style, the restored-only build of Task 5 gains clips from short lines, from the 5–20% band and from recovered lines; numbers per source in `stage2_results.md`.
 
