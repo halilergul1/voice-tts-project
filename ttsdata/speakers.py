@@ -14,6 +14,11 @@ This stage derives a `speaker_id` per clip from speaker embeddings:
    two ids is cheaper for TTS than fusing two voices under one id.
 4. ids: `<series_slug>_spkNN`, numbered by cluster size within the series (spk00 = most clips).
 
+`--reference ROOT` labels an add-on dataset (episodes processed later under another root) against a dataset
+that already has ids: each episode cluster takes the closest speaker of its series in the reference (same merge
+threshold, closest pair first, one reference speaker per episode cluster), the rest are merged among themselves
+and numbered after the reference's highest id. The reference is only read.
+
 Sanity check against the weak labels: for clips with a named `speaker_hint`, purity (clips in a cluster
 that carry its majority hint) and completeness (clips of a hint that sit in its majority cluster),
 optionally swept over thresholds (`ttsdata speakers --sweep 0.4,0.5,0.6`).
@@ -24,6 +29,7 @@ import json
 import re
 import unicodedata
 from collections import Counter, defaultdict
+from dataclasses import replace
 from math import gcd
 from pathlib import Path
 
@@ -202,6 +208,94 @@ def assign_speakers(rows: list[dict], vectors: dict[str, np.ndarray], threshold:
     return out
 
 
+def reference_speakers(ref_rows: list[dict], ref_vectors: dict[str, np.ndarray]) -> dict:
+    """{series: (speaker ids, unit centroids (k, d), clip counts (k,))} of a dataset that already has ids."""
+    acc: dict = defaultdict(lambda: defaultdict(list))
+    for r in ref_rows:
+        v = ref_vectors.get(r["id"])
+        if v is not None and r.get("speaker_id"):
+            acc[r["series"]][r["speaker_id"]].append(v)
+    out = {}
+    for series, spk in acc.items():
+        ids = sorted(spk)
+        cents = l2norm(np.stack([l2norm(np.stack(spk[i])).sum(axis=0) for i in ids]))
+        out[series] = (ids, cents, np.array([len(spk[i]) for i in ids]))
+    return out
+
+
+def match_reference(cents: np.ndarray, groups: list, ref_cents: np.ndarray, threshold: float) -> np.ndarray:
+    """Index of the closest reference speaker per cluster (cosine distance <= threshold), -1 for none.
+
+    Closest pair first; two clusters of one episode never take the same reference speaker (the per-episode
+    step already decided they are different voices)."""
+    match = np.full(len(cents), -1, dtype=int)
+    if len(cents) == 0 or len(ref_cents) == 0:
+        return match
+    d = 1.0 - l2norm(cents) @ l2norm(ref_cents).T
+    taken: set = set()
+    for flat in np.argsort(d, axis=None, kind="stable"):
+        i, j = divmod(int(flat), d.shape[1])
+        if d[i, j] > threshold:
+            break
+        if match[i] < 0 and (groups[i], j) not in taken:
+            match[i] = j
+            taken.add((groups[i], j))
+    return match
+
+
+def _next_number(ids: list[str], slug: str) -> tuple[int, int]:
+    """First free spk number after the reference ids of a series, and their zero-pad width."""
+    nums = [m.group(1) for i in ids if (m := re.fullmatch(rf"{re.escape(slug)}_spk(\d+)", i))]
+    return (max(int(n) for n in nums) + 1 if nums else 0), max([len(n) for n in nums] + [2])
+
+
+def assign_with_reference(rows: list[dict], vectors: dict[str, np.ndarray], reference: dict, threshold: float,
+                          merge_threshold: float) -> dict[str, tuple[str, int]]:
+    """Like `assign_speakers`, but clusters close to a reference speaker of the same series take its id.
+
+    The cluster size returned for a reused id counts the reference clips plus the new ones."""
+    by_series: dict = defaultdict(lambda: defaultdict(list))
+    for i, r in enumerate(rows):
+        by_series[r["series"]][r["uid"]].append(i)
+    out: dict[str, tuple[str, int]] = {}
+    for series, episodes in by_series.items():
+        cents, sizes, groups, owners = [], [], [], []
+        for uid, idxs in episodes.items():
+            emb = np.stack([vectors[rows[i]["id"]] for i in idxs])
+            lab = cluster_embeddings(emb, threshold)
+            c, s = centroids(emb, lab)
+            for ci in range(len(s)):
+                cents.append(c[ci])
+                sizes.append(int(s[ci]))
+                groups.append(uid)
+                owners.append([idxs[j] for j in np.flatnonzero(lab == ci)])
+        ref_ids, ref_cents, ref_sizes = reference.get(series, ([], np.zeros((0, len(cents[0]))), np.zeros(0)))
+        match = match_reference(np.stack(cents), groups, ref_cents, merge_threshold)
+        names: list = [ref_ids[j] if j >= 0 else None for j in match]
+        rest = [ci for ci in range(len(cents)) if match[ci] < 0]
+        if rest:
+            merged = merge_clusters(np.stack([cents[c] for c in rest]), np.array([sizes[c] for c in rest]),
+                                    [groups[c] for c in rest], merge_threshold)
+            slug = series_slug(series)
+            start, width = _next_number(ref_ids, slug)
+            total: Counter = Counter()
+            for c, m in zip(rest, merged):
+                total[int(m)] += sizes[c]
+            order = sorted(total, key=lambda m: (-total[m], m))
+            width = max(width, len(str(start + len(order) - 1)))
+            label = {m: f"{slug}_spk{start + r:0{width}d}" for r, m in enumerate(order)}
+            for c, m in zip(rest, merged):
+                names[c] = label[int(m)]
+        new_size: Counter = Counter()
+        for ci, name in enumerate(names):
+            new_size[name] += sizes[ci]
+        ref_size = {i: int(n) for i, n in zip(ref_ids, ref_sizes)}
+        for ci, name in enumerate(names):
+            for i in owners[ci]:
+                out[rows[i]["id"]] = (name, ref_size.get(name, 0) + new_size[name])
+    return out
+
+
 # ----------------------------------------------------------------------------------------------
 # embeddings
 # ----------------------------------------------------------------------------------------------
@@ -307,11 +401,55 @@ def embed_all(cfg: Config, rows: list[dict]) -> dict[str, np.ndarray]:
 # evaluation, writing, driver
 # ----------------------------------------------------------------------------------------------
 
-def load_rows(cfg: Config) -> list[dict]:
+def load_rows(cfg: Config, series: set | None = None) -> list[dict]:
+    """metadata.jsonl rows of cfg.root's dataset, optionally only those of the given series."""
     p = cfg.dataset_dir / "metadata.jsonl"
     if not p.exists():
         raise SystemExit(f"{p} not found: run `ttsdata build` first")
-    return [json.loads(line) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+    keys = {json.dumps(s, ensure_ascii=False) for s in series} if series is not None else None
+    rows = []
+    with p.open(encoding="utf-8") as f:
+        for line in f:
+            if not line.strip() or (keys is not None and not any(k in line for k in keys)):
+                continue  # cheap pre-filter on the raw line; the parsed series is checked below
+            r = json.loads(line)
+            if series is None or r["series"] in series:
+                rows.append(r)
+    return rows
+
+
+def load_cached_vectors(cfg: Config, rows: list[dict]) -> dict[str, np.ndarray]:
+    """Embeddings of `rows` from cfg.root's speaker cache, read-only; clips without a cached vector are left out."""
+    want: dict = defaultdict(set)
+    for r in rows:
+        want[r["uid"]].add(r["id"])
+    out: dict[str, np.ndarray] = {}
+    for uid, ids in want.items():
+        npy, meta_file = speakers_dir(cfg) / f"{uid}.npy", speakers_dir(cfg) / f"{uid}.json"
+        if not (npy.exists() and meta_file.exists()):
+            continue
+        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+        if meta.get("model") != cfg.speaker_model:
+            continue
+        emb = np.load(npy)
+        out.update({i: emb[k] for k, i in enumerate(meta["ids"]) if i in ids})
+    return out
+
+
+def load_reference(cfg: Config, reference: Path, rows: list[dict]) -> dict:
+    """Speakers of the reference root for the series in `rows` (see `reference_speakers`)."""
+    ref_cfg = replace(cfg, root=Path(reference))
+    if ref_cfg.dataset_dir.resolve() == cfg.dataset_dir.resolve():
+        raise SystemExit("--reference must be another data root than --root")
+    ref_rows = load_rows(ref_cfg, series={r["series"] for r in rows})
+    overlap = {r["uid"] for r in rows} & {r["uid"] for r in ref_rows}
+    if overlap:
+        raise SystemExit(f"{len(overlap)} episodes are in both datasets (e.g. {sorted(overlap)[0]})")
+    ref_vectors = load_cached_vectors(ref_cfg, ref_rows)
+    ref = reference_speakers(ref_rows, ref_vectors)
+    print(f"[speakers] reference {ref_cfg.dataset_dir}: {len(ref_rows)} clips, {len(ref_vectors)} embedded, "
+          f"{sum(len(v[0]) for v in ref.values())} speakers in {len(ref)} series")
+    return ref
 
 
 def evaluate(rows: list[dict], assign: dict[str, tuple[str, int]]) -> dict:
@@ -409,8 +547,12 @@ def _parse_list(spec: str | None) -> list[float] | None:
     return [float(x) for x in spec.split(",") if x.strip()] if spec else None
 
 
-def run(cfg: Config, sweep: str | None = None, sweep_merge: str | None = None, write: bool = True) -> dict:
+def run(cfg: Config, sweep: str | None = None, sweep_merge: str | None = None, write: bool = True,
+        reference: Path | None = None) -> dict:
     rows = load_rows(cfg)
+    if reference is not None and sweep:
+        raise SystemExit("--sweep scores the clustering itself; drop --reference for it")
+    ref = load_reference(cfg, reference, rows) if reference is not None else None
     vectors = embed_all(cfg, rows)
     thresholds = _parse_list(sweep)
     if thresholds:
@@ -426,7 +568,13 @@ def run(cfg: Config, sweep: str | None = None, sweep_merge: str | None = None, w
         print()
         print(sweep_table(results))
         return {"sweep": [(t, m, ev["overall"]) for t, m, ev in results]}
-    assign = assign_speakers(rows, vectors, cfg.speaker_threshold, cfg.speaker_merge_threshold)
+    if ref is not None:
+        assign = assign_with_reference(rows, vectors, ref, cfg.speaker_threshold, cfg.speaker_merge_threshold)
+        known = {i for ids, _, _ in ref.values() for i in ids}
+        reused = sum(sid in known for sid, _ in assign.values())
+        print(f"[speakers] {reused} of {len(rows)} clips took an existing speaker id from {reference}")
+    else:
+        assign = assign_speakers(rows, vectors, cfg.speaker_threshold, cfg.speaker_merge_threshold)
     ev = evaluate(rows, assign)
     print(sweep_table([(cfg.speaker_threshold, cfg.speaker_merge_threshold, ev)]))
     print()

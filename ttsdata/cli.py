@@ -155,7 +155,7 @@ def cmd_build(args) -> None:
     from .build import build
 
     cfg = _cfg_from_args(args)
-    st = build(cfg)
+    st = build(cfg, overwrite=args.overwrite)
     print(json.dumps({k: v for k, v in st.items() if k not in ("per_series",)}, ensure_ascii=False, indent=2))
     print(f"dataset at {cfg.dataset_dir}")
 
@@ -164,7 +164,8 @@ def cmd_speakers(args) -> None:
     from .speakers import run
 
     cfg = _cfg_from_args(args)
-    run(cfg, sweep=args.sweep, sweep_merge=args.sweep_merge, write=not (args.dry_run or args.sweep))
+    run(cfg, sweep=args.sweep, sweep_merge=args.sweep_merge, write=not (args.dry_run or args.sweep),
+        reference=Path(args.reference) if args.reference else None)
 
 
 def cmd_merge_clips(args) -> None:
@@ -253,6 +254,8 @@ def main(argv=None) -> None:
     s.set_defaults(func=cmd_verify)
 
     s = sub.add_parser("build", help="filter + normalise + write the final dataset")
+    s.add_argument("--overwrite", action="store_true",
+                   help="also delete files later stages wrote into the dataset folder (refused otherwise)")
     _add_cfg_overrides(s)
     s.set_defaults(func=cmd_build)
 
@@ -261,6 +264,8 @@ def main(argv=None) -> None:
     s.add_argument("--sweep-merge", help="comma list of speaker_merge_threshold values zipped with --sweep "
                                          "(default: the configured merge threshold for every row)")
     s.add_argument("--dry-run", action="store_true", help="cluster and report only; do not touch the dataset")
+    s.add_argument("--reference", help="data root whose dataset already has speaker ids (e.g. data): give this "
+                                       "root's clips the closest existing speaker of their series instead of new ids")
     _add_cfg_overrides(s)
     s.set_defaults(func=cmd_speakers)
 

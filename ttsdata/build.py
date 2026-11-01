@@ -137,7 +137,24 @@ def _loudness_normalize(y: np.ndarray, sr: int, target: float, ceiling: float) -
     return y.astype(np.float32)
 
 
-def build(cfg: Config) -> dict:
+# what `build`, `speakers` and scripts/audit_dataset.py write into the dataset folder; anything else there
+# (cleaned audio, emotion labels, ...) belongs to later stages and must not be wiped by a rebuild
+BUILD_OUTPUTS = frozenset({"wavs", "metadata.csv", "train.csv", "val.csv", "metadata.jsonl", "rejected.jsonl",
+                           "stats.json", "README.md", "AUDIT.md"})
+
+
+def foreign_entries(out: Path) -> list[str]:
+    """Names in an existing dataset folder that a rebuild did not create and would delete."""
+    return sorted(p.name for p in out.iterdir() if p.name not in BUILD_OUTPUTS) if out.is_dir() else []
+
+
+def build(cfg: Config, overwrite: bool = False) -> dict:
+    out = cfg.dataset_dir
+    foreign = foreign_entries(out)
+    if foreign and not overwrite:
+        shown = ", ".join(foreign[:8]) + (", ..." if len(foreign) > 8 else "")
+        raise SystemExit(f"{out} holds {len(foreign)} entries a rebuild would delete ({shown}). "
+                         f"Build into another --root, or pass --overwrite to delete them.")
     recs = load_records(cfg)
     for r in tqdm(recs, desc="edges", unit="seg", mininterval=5.0):
         # margins are a build-time choice: recompute edges from the stored word span, then snap with VAD
@@ -147,7 +164,6 @@ def build(cfg: Config) -> dict:
             r["trim_start"], r["trim_end"] = round(t0, 3), round(t1, 3)
         if r.get("trim_start") is not None and "wav" in r and r["trim_end"] > r["trim_start"]:
             snap_record(r, cfg)
-    out = cfg.dataset_dir
     wavs = out / "wavs"
     if out.exists():
         shutil.rmtree(out)
