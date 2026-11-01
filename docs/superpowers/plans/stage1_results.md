@@ -5,11 +5,13 @@
 (gate >= 12 of 20). The LoRA does not add anything audible on top of that setting: round 5 put run 5a (LM-only
 LoRA, 85 h) against the untrained model with the same setting and the listener preferred untrained 9 to 2 (9 same).
 Run 4 with only its language-model half (`--lora-scale 1,0`) won 16/20 vs Trendyol in round 4, but that win came
-from the setting. Lessons for stage 2:
+from the setting. Run 5b (same LM-only LoRA, 150 h) did not change this: round 7 vs untrained 2 / 7 / same 11.
+Lessons for stage 2:
 - The setting carries the quality: a clear clip (a husky clip gives a husky voice), continuation, guidance 3.0.
 - Training on our audio (Sidon-restored TV drama) pulls the base model down towards it. The DiT half of the LoRA
   adds robotic bits; the language-model half alone is neutral at best. Number gains (a few words in 1000, less
-  high-voice drift) were not audible.
+  high-voice drift) were not audible. More of the same audio does not help: 150 h (run 5b) lost to untrained like
+  85 h (run 5a) did.
 - Stage 2 has to teach what the base model cannot do (styles, sound tags) while keeping its sound: train the
   language-model part only, and gate every run with a blind round against the untrained model with this setting.
 - Restored clips passing the tier: 85.5 h before run 5b, 193.9 h after `scripts/server_more_clean.sh` cleaned a
@@ -679,3 +681,11 @@ Scored with clip B continue + clone, cfg 3.0, prompt '' (Freya100 / corpus 50):
 - Blind round 7 page: `data/listening_sample/stage1_ab_blind7.html` (builder `data/ab_page7.py` on astrobot): run 5b
   end (`s1v5b_end_r7`) vs untrained VoxCPM2 with the same clip and settings (`s0_voxcpm2_contB_r7`) on Freya 120-139
   (`data/eval/r7_sentences.txt`), unused in rounds 1-6. Run 5b replaces the untrained setting only at >= 12 of 20.
+
+### Round 7 blind result (2026-11-01)
+
+Run 5b end vs untrained VoxCPM2 with the same clip and settings, Freya 120-139: run 5b 2 / untrained 7 / same 11
+(gate >= 12: not met). Almost the same as round 5 with run 5a (2 / 9 / same 9): doubling the clean training audio
+from 85 h to 150 h does not make the voice better than the base model; the lower corpus word errors of run 5b are not
+heard. Stage 1 stays closed with the untrained setting. The extra cleaned audio (restored pool 193.9 h) stays useful
+for stage 2, where the base model cannot do the styles and sound tags.
