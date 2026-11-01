@@ -30,8 +30,8 @@ import numpy as np
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.separation import (alias, choose_source, event_base_ids, ids_to_separate, loudness_normalize,  # noqa: E402
-                                manifest_ids, merge_separation, relative_loudness_db, separate_batch, shard,
+from ttsdata.separation import (alias, choose_source, ids_to_separate, loudness_normalize,  # noqa: E402
+                                manifest_clip_ids, merge_separation, relative_loudness_db, separate_batch, shard,
                                 stems_for)
 
 DEFAULT_MODEL = "model_bs_roformer_ep_317_sdr_12.9755.ckpt"
@@ -95,13 +95,7 @@ def main() -> int:
 
     rows = [json.loads(l) for l in (root / "metadata.jsonl").read_text(encoding="utf-8").splitlines() if l.strip()]
     if a.manifests:
-        used = set()
-        events_meta = root.parent / "dataset_events" / "metadata.jsonl"
-        events = ([json.loads(l) for l in events_meta.read_text(encoding="utf-8").splitlines() if l.strip()]
-                  if root.name == "dataset" and events_meta.exists() else [])
-        for m in a.manifests.split(","):
-            mrows = [json.loads(l) for l in Path(m).read_text(encoding="utf-8").splitlines() if l.strip()]
-            used |= manifest_ids(mrows, root.name) | event_base_ids(mrows, events)
+        used = manifest_clip_ids(root, a.manifests.split(","))
         rows = [r for r in rows if r["id"] in used]
         print(f"--manifests: {len(rows)} clips of {root} are used by {a.manifests}")
     if a.ids_from_wavs:

@@ -113,3 +113,19 @@ def test_separate_batch_keeps_the_outputs_of_the_inputs_that_worked():
     import pytest
     with pytest.raises(OSError):  # any other error still stops the run
         separate_batch(Sep(OSError("disk full")), ["a"])
+
+
+def test_manifest_clip_ids_reads_the_manifests_and_adds_event_bases_for_the_main_root(tmp_path):
+    import json
+
+    from ttsdata.separation import manifest_clip_ids
+    (tmp_path / "dataset_events").mkdir()
+    (tmp_path / "dataset_events" / "metadata.jsonl").write_text(
+        json.dumps({"id": "e1_laugh", "base": "b1"}) + "\n" + json.dumps({"id": "e2_cry", "base": "b2"}) + "\n")
+    train, val = tmp_path / "train.jsonl", tmp_path / "val.jsonl"
+    train.write_text(json.dumps({"audio": "../dataset/wavs/a.wav", "ref_audio": "../dataset_long/wavs/m1.wav"}) + "\n"
+                     + json.dumps({"audio": "../dataset_events/wavs/e1_laugh.wav"}) + "\n")
+    val.write_text(json.dumps({"audio": "../dataset/wavs_sidon/c.wav"}) + "\n")
+    # the clips separate_vocals.py --manifests cleans: the root's own clips, plus the bases of the event clips
+    assert manifest_clip_ids(tmp_path / "dataset", [train, val]) == {"a", "b1", "c"}
+    assert manifest_clip_ids(tmp_path / "dataset_long", [str(train)]) == {"m1"}  # event bases live in dataset only

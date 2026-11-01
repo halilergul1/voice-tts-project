@@ -109,6 +109,10 @@ Selection for cleaning with `--max-cer 0.20` only (3 s minimum), before cleaning
 | cry | 278 | 344 |
 
 The `lclean` run started at 07:56 (after run 5b's cleaning failed) with the earlier selection that still had the
-short lines, so it also separates them; that costs GPU time only. When run 5b was restarted on `data/dataset` at
-13:15, `lclean` was paused after its `sep_dataset` step (SIGSTOP) and resumes when the `run5b` session ends, so the
-two never run the same step on one folder.
+short lines, so its separation of `data/dataset` (135,426 clips incl. references, ~104k to separate) also covers
+them; that costs GPU time only. When run 5b was restarted on `data/dataset` at 13:15, the `lclean` driver was paused
+after its `sep_dataset` step (SIGSTOP; its separation workers finish), so the two never run the same step on one
+folder. The context cuts now take `--manifests` (only the separated clips the 3 s manifest uses go on to Sidon; the
+short lines would have added ~20-30 GB at 96% disk), so the paused driver is not resumed: `data/logs/lclean_restart.sh`
+(tmux `lcleanresume`) waits for the `run5b` session to end and for the workers, stops the old driver and starts a
+fresh run of the updated script (finished stages are skipped).

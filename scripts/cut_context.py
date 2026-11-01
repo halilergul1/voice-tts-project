@@ -1,7 +1,10 @@
 """Cut training clips from the episode audio again, with --ctx seconds of context on each side, for Sidon restoration
-(ttsdata.restoration). Clips: those the vocal separation cleaned (rows of <root>/quality.jsonl with a source).
+(ttsdata.restoration). Clips: those the vocal separation cleaned (rows of <root>/quality.jsonl with a source); with
+--manifests, only those of them the manifests use (as separate_vocals.py --manifests picks them), so clips another
+selection separated earlier do not go on to Sidon.
 
   .venv/bin/python scripts/cut_context.py --root data/dataset [--ctx 0.5] [--workers 8] [--out wavs_ctx]
+      [--manifests data/voxcpm_stage2_rawlabels/train.jsonl,data/voxcpm_stage2_rawlabels/val.jsonl]
 
 Writes <root>/<out>/<id>.wav (24 kHz mono) and <root>/ctx.jsonl rows {id, lead, dur}: lead = seconds of context
 before the clip, dur = the clip's own length. Each episode is decoded once. Resumable: ids already in ctx.jsonl with a
@@ -22,6 +25,7 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ttsdata.restoration import context_span, episode_audio  # noqa: E402
+from ttsdata.separation import manifest_clip_ids  # noqa: E402
 
 SR = 24_000
 
@@ -59,11 +63,16 @@ def main() -> int:
     ap.add_argument("--ctx", type=float, default=0.5)
     ap.add_argument("--workers", type=int, default=8)
     ap.add_argument("--limit", type=int, default=0, help="first N clips only (testing)")
+    ap.add_argument("--manifests", default="", help="comma-separated manifests: only the separated clips they use")
     a = ap.parse_args()
     root, raw = Path(a.root), Path(a.raw)
     out = root / a.out
     out.mkdir(parents=True, exist_ok=True)
     used = {q["id"] for q in _load(root / "quality.jsonl") if q.get("source")}
+    if a.manifests:
+        n_sep = len(used)
+        used &= manifest_clip_ids(root, a.manifests.split(","))
+        print(f"--manifests: {len(used)} of {n_sep} separated clips are used by {a.manifests}", flush=True)
     meta = [r for r in _load(root / "metadata.jsonl") if r["id"] in used]
     if a.limit:
         meta = meta[: a.limit]

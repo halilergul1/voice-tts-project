@@ -4,6 +4,8 @@
 # labelled hours before cleaning), then runs the steps of server_more_clean.sh on those clips: separation, audit, context
 # cuts, separation of the cuts, Sidon, word check, audit for dataset_long and dataset (the dataset pass also separates
 # the base clip of every event clip), separation + audit only for dataset_events. Every step skips finished clips.
+# The context cuts (and so Sidon) follow the manifest too, not every separated clip: a clip an earlier, wider selection
+# separated (e.g. the 1.5-3 s lines dropped in Task 3D) stops there.
 #   tmux new -d -s lclean 'scripts/server_label_clean.sh >> data/logs/lclean.log 2>&1'
 # Env: RAW_HOURS (default 400), RAWLABELS (default data/voxcpm_stage2_rawlabels), NARR (narration_styles.jsonl from
 #      Task 3B, optional), LOG (default data/logs), PY, SEP_PY, SIDON_PY, WORKERS, SEP_JOBS, SEP_BATCH, SIDON_JOBS.
@@ -102,7 +104,8 @@ stage quality_dataset_events  audit data/dataset_events wavs_clean
 for r in dataset_long dataset; do
     stage "sep_$r"      separate_clips "data/$r"
     stage "quality_$r"  audit "data/$r" wavs_clean
-    stage "cut_$r"      "$PY" scripts/cut_context.py --root "data/$r" --workers "$WORKERS"
+    stage "cut_$r"      "$PY" scripts/cut_context.py --root "data/$r" --workers "$WORKERS" \
+        --manifests "$RAWLABELS/train.jsonl,$RAWLABELS/val.jsonl"
     stage "sepctx_$r"   separate_ctx "data/$r"
     stage "restore_$r"  restore "data/$r"
     stage "words_$r"    wordcheck "data/$r"

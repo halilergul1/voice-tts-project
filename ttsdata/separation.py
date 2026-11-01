@@ -78,6 +78,25 @@ def event_base_ids(rows: list[dict], event_rows: list[dict]) -> set[str]:
     return {e["base"] for e in event_rows if e["id"] in used and e.get("base")}
 
 
+def manifest_clip_ids(root, manifests) -> set[str]:
+    """Clip ids of dataset root `root` (a Path) that the manifest files use, plus, for the main `dataset` root, the
+    bases of their event clips: the clips separate_vocals.py --manifests cleans, and the ones the later cleaning steps
+    (context cuts, Sidon) should follow."""
+    import json
+    from pathlib import Path
+
+    def load(p) -> list[dict]:
+        return [json.loads(l) for l in Path(p).read_text(encoding="utf-8").splitlines() if l.strip()]
+
+    events_meta = root.parent / "dataset_events" / "metadata.jsonl"
+    events = load(events_meta) if root.name == "dataset" and events_meta.exists() else []
+    used: set[str] = set()
+    for m in manifests:
+        rows = load(m)
+        used |= manifest_ids(rows, root.name) | event_base_ids(rows, events)
+    return used
+
+
 def ids_to_separate(ids: list[str], done: set[str], quality: dict[str, dict], redo_original: bool = False,
                     in_shards: set[str] | frozenset = frozenset()) -> list[str]:
     """Clips still to separate: no file in the output folder yet, or (redo_original) kept as the original last time.
