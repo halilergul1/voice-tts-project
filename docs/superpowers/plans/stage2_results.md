@@ -158,3 +158,36 @@ First reading, before listening:
 Listening pages (`data/listening_sample/s2probe/`, keys next to them): `style_P2`, `style_P3`, `style_P4` (8 clips per
 style + 8 P0 clips as neutral, "natural?" asked), `tags_P1`, `tags_P2`, `tags_P2en` (8 per tag + 8 P0 clips as none).
 Decision (Task 4 Step 4) after the user's answers.
+
+### Probe by ear and decision (Task 4 Step 4, 2026-11-02)
+
+Listener correct of 8 (blind; neutral = 8 P0 clips on the same page; "natural" = yes of answered):
+
+| page | angry | happy | sad | neutral | natural yes (angry / happy / sad / neutral) |
+|---|---|---|---|---|---|
+| style P2 (clone + Turkish prefix) | 0 | 0 | 0 | 8 | 4/8, 8/8, 7/8, 7/8 |
+| style P3 (clone + English prefix) | 0 | 0 | 0 | 7 | 4/8, 7/8, 7/8, 5/8 |
+| style P4 (styled clip) | 0 | **8** | 2 | 7 | 7/7, 6/8, 8/8, 5/8 |
+
+| tag page | laugh | breath | cry | none |
+|---|---|---|---|---|
+| P1 (S1 + Turkish tag) | 0/3 | 1/8 | 0/7 | 4/4 (12 of 32 unanswered) |
+| P2 (clone + Turkish tag) | 0/8 | 1/8 | 0/8 | 7/8 |
+| P2en (clone + English tag) | 5/8 | 2/8 | 3/8 | 7/8 |
+
+The tag answers were pasted without page names except P2; the first block is taken as P2en, the third as P1 (the
+suggested order). The three tag pages share one layout, so only the setup names depend on that.
+
+- **emotion2vec+ disagrees with the ear on synthetic speech.** P4 angry scored 1.00 by emotion2vec+ and 0 of 8 by ear;
+  P3 angry / happy 0.55-0.60 and 0 of 8. The style hit rate is a pre-filter at most; Task 6 / 7 decisions need
+  listening.
+- **English tags make sounds, but not always the speaker's own**: the listener heard a baby crying in the background
+  and another man laughing in some P2en clips. Turkish tags make nothing (and "[ağlama]" is read aloud).
+- **Decision: every label stays in the training set.** No label meets its gate in a setup that keeps clip B's voice;
+  happy reaches 8 of 8 only in P4, which takes over the styled clip's speaker (voice cos 0.31) and needs a happy clip
+  of the target voice, which clip B does not have.
+- **Styled inference mode for Task 6: P2** (clone clip B + Turkish prefix). P1 reads the prefix aloud (WER up to
+  0.57); P2 never does (WER 0.00-0.01), and a training row (prefix + text, reference audio) has the same shape. Both are
+  0 of 8 by ear untrained, so the LoRA has to teach the style.
+- Open for Task 5 (the user's call): write the sound tags as English words ("[laughter]", "[breath]", "[crying]"),
+  which the untrained model already links to the sounds, instead of the Turkish words it ignores or reads aloud.

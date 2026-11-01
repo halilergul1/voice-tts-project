@@ -546,7 +546,8 @@ Expected: about 1,000 short clips; `style_summary.md` rows for every run.
 - [x] **Step 3: Build a probe listening page** (2026-11-02: style pages for P2, P3, P4 only, since P1 reads the prefix aloud in
   7-20 of 20 sentences; tag pages for P1, P2, P2en; numbers in `stage2_results.md`) with `blind_page.py style` per setup (8 neutral-text clips per style plus 8 P0 clips as "neutral"), and one tag page per setup (`laugh`, `breath`, `cry`, `none`). Send the pages to the user.
 
-- [ ] **Step 4: Record and decide** in `stage2_results.md`:
+- [x] **Step 4: Record and decide** in `stage2_results.md` (2026-11-02: no label leaves the training set; styled
+  inference mode P2; emotion2vec+ hit rates on synthetic speech disagree with the listener, so they pre-filter only):
 
 | per label | measure |
 |---|---|
