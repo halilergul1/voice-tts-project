@@ -116,3 +116,45 @@ folder. The context cuts now take `--manifests` (only the separated clips the 3 
 short lines would have added ~20-30 GB at 96% disk), so the paused driver is not resumed: `data/logs/lclean_restart.sh`
 (tmux `lcleanresume`) waits for the `run5b` session to end and for the workers, stops the old driver and starts a
 fresh run of the updated script (finished stages are skipped).
+
+## Task 4: base-model probe (2026-11-02)
+
+Untrained VoxCPM2, clip B's voice, cfg 3.0, `scripts/probe_stage2.sh` (39 runs, 00:50 to 01:23 on astrobot). Neutral
+text = 20 Freya sentences with no emotion; matched text = 10 val lines per style. Hit rate = emotion2vec+ top class at
+the target; voice cos = ECAPA similarity to P0 (plain S1) on the same text; read aloud = label words spoken as words.
+
+| setup | label | hit rate neutral / matched text | neutral rate (neutral text) | read aloud (of 20 / 10) | WER neutral / matched | voice cos | UTMOS |
+|---|---|---|---|---|---|---|---|
+| P0 plain S1 | - | target neutral 0.50 | 0.50 | 0 | 0.000 | - | 2.99 |
+| P0 plain S1 | angry / happy / sad text | 0.10 / 0.30 / 0.00 on matched | - | 0 | 0.000-0.025 | 0.74-0.84 | 3.04-3.18 |
+| P1 S1 + Turkish prefix | angry | 0.25 / 0.40 | 0.45 | 7 / 7 | 0.19 / 0.20 | 0.83 | 2.97 |
+| | happy | 0.60 / 0.50 | 0.15 | 12 / 6 | 0.15 / 0.21 | 0.86 | 3.01 |
+| | sad | 0.00 / 0.00 | 0.40 | 20 / 10 | 0.42 / 0.57 | 0.86 | 3.04 |
+| P2 clone + Turkish prefix | angry | 0.40 / 0.40 | 0.25 | 0 / 0 | 0.01 / 0.00 | 0.65 | 2.72 |
+| | happy | 0.15 / 0.30 | 0.50 | 0 / 0 | 0.00 / 0.00 | 0.67 | 2.81 |
+| | sad | 0.05 / 0.00 | 0.50 | 0 / 0 | 0.01 / 0.00 | 0.67 | 2.87 |
+| P3 clone + English prefix | angry | 0.55 / 0.60 | 0.30 | 0 / 0 | 0.01 / 0.00 | 0.66 | 2.40 |
+| | happy | 0.60 / 0.40 | 0.10 | 0 / 0 | 0.01 / 0.00 | 0.66 | 2.78 |
+| | sad | 0.00 / 0.00 | 0.45 | 0 / 0 | 0.02 / 0.00 | 0.65 | 2.82 |
+| P4 styled clip, clone B | angry | 1.00 / 1.00 | 0.00 | 0 / 0 | 0.01 / 0.03 | 0.52 | 2.79 |
+| | happy | 1.00 / 0.90 | 0.00 | 0 / 0 | 0.01 / 0.00 | 0.31 | 3.05 |
+| | sad | 0.50 / 0.70 | 0.35 | 0 / 0 | 0.01 / 0.06 | 0.41 | 3.19 |
+
+| tag setup | laugh realised (Whisper) | read aloud (of 10): laugh / breath / cry | WER laugh / breath / cry |
+|---|---|---|---|
+| P1 S1 + Turkish tag | 0.20 | 0 / 0 / 9 | 0.20 / 0.01 / 0.11 |
+| P2 clone + Turkish tag | 0.20 | 0 / 0 / 6 | 0.09 / 0.05 / 0.10 |
+| P2en clone + English tag | 0.30 | (not measured for English words) | 0.01 / 0.01 / 0.01 |
+
+First reading, before listening:
+- **Sad never comes from a text prompt** (0.00-0.05 in P1-P3); only the styled clip (P4) gives it. Angry and happy come
+  partly from the English prefix (P3 0.55-0.60) and less from the Turkish one (P2 0.15-0.40).
+- **P1 speaks the Turkish prefix**: "(üzgün bir sesle)" read aloud in 20 of 20 sentences, WER up to 0.57. Continuation
+  mode treats the prefix as text to say. No style page for P1 (the read-aloud rules it out as an inference recipe).
+- **P4 gets the style but not the voice**: voice cos to clip B 0.31-0.52 against ~0.66 for P2 / P3; the model takes
+  over the styled clip's speaker. It needs a styled clip of the target voice, which clip B does not have.
+- Tags: laughs are rare by Whisper (0.2-0.3); the Turkish cry tag is read aloud ("ağlama", 6-9 of 10).
+
+Listening pages (`data/listening_sample/s2probe/`, keys next to them): `style_P2`, `style_P3`, `style_P4` (8 clips per
+style + 8 P0 clips as neutral, "natural?" asked), `tags_P1`, `tags_P2`, `tags_P2en` (8 per tag + 8 P0 clips as none).
+Decision (Task 4 Step 4) after the user's answers.

@@ -543,7 +543,8 @@ Plain baseline P0 = S1 on the same sentences. Tags are tried in P1 and P2 with t
 
 Expected: about 1,000 short clips; `style_summary.md` rows for every run.
 
-- [ ] **Step 3: Build a probe listening page** with `blind_page.py style` per setup (8 neutral-text clips per style plus 8 P0 clips as "neutral"), and one tag page per setup (`laugh`, `breath`, `cry`, `none`). Send the pages to the user.
+- [x] **Step 3: Build a probe listening page** (2026-11-02: style pages for P2, P3, P4 only, since P1 reads the prefix aloud in
+  7-20 of 20 sentences; tag pages for P1, P2, P2en; numbers in `stage2_results.md`) with `blind_page.py style` per setup (8 neutral-text clips per style plus 8 P0 clips as "neutral"), and one tag page per setup (`laugh`, `breath`, `cry`, `none`). Send the pages to the user.
 
 - [ ] **Step 4: Record and decide** in `stage2_results.md`:
 
