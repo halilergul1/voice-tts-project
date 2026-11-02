@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from ttsdata.narration import link_lines, name_clusters, parse_description  # noqa: E402
+from ttsdata.narration import clean_span_text, link_lines, name_clusters, parse_description  # noqa: E402
 from ttsdata.soundtags import tr_lower  # noqa: E402
 
 E2V_CLASS = {"angry": "angry", "happy": "happy", "sad": "sad", "crying": "sad", "scared": "fearful",
@@ -85,7 +85,9 @@ def main() -> int:
             series_of[r["uid"]] = r.get("series")
     spans_by_uid: dict[str, dict] = defaultdict(dict)
     for s in spans:  # a rerun after a crash may have written an episode twice
-        spans_by_uid[s["uid"]][(s["start"], s["end"])] = s
+        text = clean_span_text(s["text"])  # again, so older span files get today's cleaning
+        if text:
+            spans_by_uid[s["uid"]][(s["start"], s["end"])] = {**s, "text": text}
     descs, rows = [], []
     for uid, sp in spans_by_uid.items():
         d, r = label_episode(list(sp.values()), lines_by_uid.get(uid, []), series_of.get(uid), resolve)
@@ -114,7 +116,7 @@ def main() -> int:
     scale = a.episodes_total / n_ep if n_ep else 0
     L = ["# Narrator emotion labels (Task 3B)", "",
          f"{n_ep} episodes, {audio / 3600:.1f} h audio; gaps between speech cues {gap_sec / 3600:.1f} h; narrator spans "
-         f"{narr_sec / 3600:.2f} h ({narr_sec / max(n_ep, 1):.0f} s per episode); Whisper {wall / 60:.1f} min wall, "
+         f"{narr_sec / 3600:.2f} h ({narr_sec / max(n_ep, 1):.0f} s per episode); recogniser {wall / 60:.1f} min wall, "
          f"real-time factor {wall / gap_sec:.3f} on the gaps" if gap_sec else f"{n_ep} episodes (no stats file)", "",
          f"Spans {len(spans)}, descriptions with an emotion word {len(descs)}; named {len(named)} "
          f"({len(named) / max(len(descs), 1):.0%}), name resolved to a speaker cluster {len(resolved)} "

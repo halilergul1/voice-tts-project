@@ -37,6 +37,7 @@ _TOKEN_RE = re.compile(r"[\w'’]+", re.UNICODE)
 _APOSTROPHE_RE = re.compile(r"['’]")
 # the describer's intro / outro ("Bu dizinin betimlemesi TRT tarafından Sesli Betimleme Derneğine yaptırılmıştır")
 _BOILERPLATE_RE = re.compile(r"betimle|izlediğiniz için")
+_CAPTION_RE = re.compile(r"\([^)]*\)|\[[^\]]*\]|\*[^*]*\*")
 
 
 def _emotion(token: str) -> str | None:
@@ -131,7 +132,9 @@ def narration_gaps(cues: list[tuple[float, float]], total: float, min_gap: float
 
 def clean_span_text(text: str) -> str | None:
     """A recogniser's text with known hallucinations removed and spaces collapsed; None when no word is left or the
-    text is the describer's intro / outro ("... betimlemesi ...", "izlediğiniz için teşekkür ederiz")."""
+    text is the describer's intro / outro ("... betimlemesi ...", "izlediğiniz için teşekkür ederiz"). Text in brackets
+    or stars is a caption the recogniser made up ("(Gülme sesi)", "*gülme sesleri*"), never narration."""
+    text = _CAPTION_RE.sub(" ", text)
     text = re.sub(r"\s+", " ", HALLUCINATION_RE.sub(" ", text)).strip()
     if not re.search(r"\w\w", text) or _BOILERPLATE_RE.search(tr_lower(text)):
         return None

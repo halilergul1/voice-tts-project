@@ -220,3 +220,31 @@ suggested order). The three tag pages share one layout, so only the setup names 
 - `transcribe_narration.py` now runs Seamless on Silero VAD speech inside the gaps (`narration.speech_chunks`,
   `narration.clean_span_text`). The pilot is re-run with it; the Whisper output is kept as
   `data/dataset/narration_whisper*.jsonl` on astrobot.
+
+### Narrator pilot with Seamless (2026-11-02)
+
+Same 20 episodes, `transcribe_narration.py --batch 32` (Seamless M4T v2 on Silero VAD speech in the gaps, chunks
+≤ 10 s), then `narration_labels.py` (bracketed captions such as "(Gülme sesi)", "(Korkma)" dropped; 7 false
+descriptions). 4.9 min wall, real-time factor 0.007 on the gaps: **the full 1,017 episodes take ~4 h**.
+
+- VAD speech in the gaps 7.1 h of 11.0 h (narrator plus songs and unsubtitled talk); 5,493 chunks. Real
+  descriptions throughout: "Cemha'nın göz bandını çıkardı Ali şaşkınlıkla bakıyor.", "Zehra taksinin arka koltuğunda
+  önüne bakarak sessizce ağlıyor.", "Adnan sinirle bıraktı telefonu ...".
+- Descriptions with an emotion word: 795 (Whisper: 15). Named 80%; name resolved to a speaker cluster 30% of named
+  (Seamless misspells names, and only names with ≥ 5 subtitle speaker hints in one cluster resolve).
+- Linked lines (only lines in `data/dataset` can be linked) and projection to 1,017 episodes:
+
+| emotion | descriptions | linked lines | named-and-resolved | no name (first line ≤ 5 s) | e2v top class agrees | projected lines |
+|---|---|---|---|---|---|---|
+| angry | 110 | 33 | 9 | 24 | 9% | ~1,700 |
+| happy | 305 | 117 | 29 | 91 | 34% | ~5,900 |
+| sad | 125 | 35 | 8 | 29 | 46% | ~1,800 |
+| crying | 37 | 8 | 5 | 3 | 38% | ~400 |
+| scared | 101 | 25 | 2 | 24 | 0% | ~1,300 |
+| surprised | 117 | 50 | 11 | 39 | 8% | ~2,500 |
+
+- Against the plan's bar (~2,000 linked lines per class): happy and surprised pass, angry and sad fall just short,
+  scared and crying well short; none of the new classes reaches the 3,000-clip bar for a style of its own. Most
+  links are the weak no-name kind (the next line of any speaker). Only a third of descriptions link to a line;
+  linking is CPU-only and can be improved after the GPU pass (fuzzy name match) without transcribing again.
+- Stopped per the plan for the user's call on the full run (Step 4).

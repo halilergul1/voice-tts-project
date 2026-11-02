@@ -99,3 +99,10 @@ def test_clean_span_text_drops_hallucinations_and_the_describers_credit():
     assert clean_span_text("Altyazı M.K.") is None
     assert clean_span_text("Bu dizinin betimlemesi TRT tarafından Sesli Betimleme Derneğine yaptırılmıştır.") is None
     assert clean_span_text("...") is None
+
+
+def test_clean_span_text_drops_bracketed_sound_captions():
+    # Seamless writes subtitle-style captions in brackets or stars; "(Korkma)" would otherwise count as fear
+    assert clean_span_text("(Gülme sesi)") is None
+    assert clean_span_text("(Çeviri:Tamam)") is None
+    assert clean_span_text("Ali kapıyı açtı. (Korkma) *gülme sesleri*") == "Ali kapıyı açtı."
