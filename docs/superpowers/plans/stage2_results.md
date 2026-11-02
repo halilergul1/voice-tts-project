@@ -248,3 +248,31 @@ descriptions). 4.9 min wall, real-time factor 0.007 on the gaps: **the full 1,01
   links are the weak no-name kind (the next line of any speaker). Only a third of descriptions link to a line;
   linking is CPU-only and can be improved after the GPU pass (fuzzy name match) without transcribing again.
 - Stopped per the plan for the user's call on the full run (Step 4).
+
+### Narrator full run (Task 3B Step 4)
+
+2026-11-02, 12:27-16:21 on astrobot (tmux `narr`), the 980 episodes after the pilot; exit 0, no errors in
+`data/logs/narration_full.log`. Report in `data/dataset/NARRATION.md`.
+
+- 1,000 episodes, 1,640 h audio; gaps between speech cues 534 h; narrator spans 343 h. Seamless 239 min wall,
+  real-time factor 0.007 on the gaps.
+- 269,882 spans; 34,207 descriptions with an emotion word; named 80%, name resolved to a speaker cluster 30% of
+  named (8,275). 468 lines got conflicting narrator emotions.
+- Linked lines (13,858 in all, `narration_styles.jsonl`):
+
+| emotion | descriptions | linked lines | named-and-resolved | no name | e2v top class agrees | e2v ≥ 0.5 |
+|---|---|---|---|---|---|---|
+| angry | 5,445 | 2,424 | 737 | 1,698 | 12% | 9% |
+| happy | 12,867 | 5,528 | 1,668 | 3,955 | 31% | 27% |
+| sad | 5,312 | 1,887 | 530 | 1,382 | 33% | 31% |
+| crying | 1,366 | 364 | 83 | 281 | 33% | 30% |
+| scared | 3,694 | 1,204 | 279 | 931 | 4% | 3% |
+| surprised | 5,523 | 2,451 | 726 | 1,734 | 6% | 5% |
+
+- The pilot's projection held (angry came in higher: 2,424 against ~1,700). Against the ~2,000 bar: happy, surprised
+  and angry pass, sad just short. No new class reaches 3,000, so crying / scared / surprised cannot become styles of
+  their own in stage 2 whatever the ear says.
+- Step 5 page: angry, sad, happy, scared, surprised (each ≥ 1,000 linked lines); crying (364) is left out.
+  Scared has only ~36 lines with e2v ≥ 0.5, enough for its 20 "agrees" clips.
+- Linking stays the weak point (70% no-name links). Fuzzy name matching is CPU-only and can run before Step 5
+  without transcribing again.

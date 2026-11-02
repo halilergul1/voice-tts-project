@@ -450,7 +450,7 @@ Run: `.venv/bin/python -m pytest tests/test_narration.py -v` (FAIL `ModuleNotFou
   scared ~1,300, surprised ~2,500 linked lines; full run ~4 h; see `stage2_results.md`) (GPU, ask first): `transcribe_narration.py --limit-episodes 20`, then `narration_labels.py`.
 Expected in `NARRATION.md`: narrator seconds per episode, Whisper real-time factor, descriptions per emotion, linked lines per emotion, share of descriptions with a resolvable name. Extrapolate to 1,017 TRT episodes and write it in `stage2_results.md`. Stop and show the user if fewer than ~2,000 linked lines per class are projected.
 
-- [ ] **Step 4: Full run** (GPU ~3–5 h by the pilot's rate, ask first; tmux `narr`, marker `data/logs/narration_done`).
+- [x] **Step 4: Full run** (GPU ~3–5 h by the pilot's rate, ask first; tmux `narr`, marker `data/logs/narration_done`). Done 2026-11-02: 1,000 episodes in 3 h 54 min, 13,858 linked lines; see `stage2_results.md` "Narrator full run".
 
 - [ ] **Step 5: Calibrate by ear.** Calibration page of 40 linked clips per class (angry, sad, happy, and crying / scared / surprised if each has ≥ 1,000 linked lines), half where emotion2vec+ agrees at confidence ≥ 0.5, half where it does not; the user rates the delivery as in the 2026-10-27 calibration (`ttsdata.emotion.RATING_CHOICES`). Score with `ttsdata.emotion.score_ratings`.
 Decision per class and source: narrator alone, narrator + emotion2vec+ ≥ 0.5, emotion2vec+ alone at the calibrated cut. A source is used when its rated precision ≥ 0.76 (the spec's target, as in the 2026-10-27 calibration). A new style (crying, scared, surprised) enters stage 2 only with precision ≥ 0.76 and ≥ 3,000 clips; otherwise it waits for a later run.
