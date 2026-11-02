@@ -445,8 +445,8 @@ def test_link_lines_window_and_cluster():
 
 Run: `.venv/bin/python -m pytest tests/test_narration.py -v` (FAIL `ModuleNotFoundError`, then 3 PASS). Episode times: subtitle lines and clips carry episode start times (`orig_start` style fields in `metadata.jsonl`); use the same field `extend-events` uses.
 
-- [x] **Step 3: Pilot on 20 TRT episodes** (2026-11-02: projected ~100 happy lines from song lyrics, 0 for every
-  other class; the uploads hold almost no description, see `stage2_results.md`; stopped here) (GPU, ask first): `transcribe_narration.py --limit-episodes 20`, then `narration_labels.py`.
+- [ ] **Step 3: Pilot on 20 TRT episodes** (2026-11-02, first try: Whisper skips the describer, see
+  `stage2_results.md`; Ruling: transcribe with Seamless M4T v2 on VAD chunks of at most 10 s; re-run) (GPU, ask first): `transcribe_narration.py --limit-episodes 20`, then `narration_labels.py`.
 Expected in `NARRATION.md`: narrator seconds per episode, Whisper real-time factor, descriptions per emotion, linked lines per emotion, share of descriptions with a resolvable name. Extrapolate to 1,017 TRT episodes and write it in `stage2_results.md`. Stop and show the user if fewer than ~2,000 linked lines per class are projected.
 
 - [ ] **Step 4: Full run** (GPU ~3–5 h by the pilot's rate, ask first; tmux `narr`, marker `data/logs/narration_done`).

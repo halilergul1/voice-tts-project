@@ -1,4 +1,5 @@
-from ttsdata.narration import link_lines, name_clusters, narration_gaps, parse_description, spans_from_words
+from ttsdata.narration import (clean_span_text, link_lines, name_clusters, narration_gaps, parse_description,
+                               spans_from_words, speech_chunks)
 
 
 def test_parse_description():
@@ -83,3 +84,18 @@ def test_parse_description_present_tense_of_smile():
     # "gülümse-" narrows to "gülümsü-" before -yor: the most common form in the descriptions
     assert parse_description("Ayşe gülümsüyor.") == [{"name": "Ayşe", "emotion": "happy", "word": "gülümsüyor"}]
     assert parse_description("Ayşe gülümseyerek bakıyor.")[0]["emotion"] == "happy"
+
+
+def test_speech_chunks_merge_short_pauses_and_cap_length():
+    # Seamless drops words on long inputs, so speech is fed in chunks of at most max_len seconds
+    speech = [(0.0, 2.0), (2.5, 4.0), (6.0, 7.0), (7.2, 20.0)]
+    assert speech_chunks(speech, max_pause=1.0, max_len=10.0) == [(0.0, 4.0), (6.0, 7.0), (7.2, 13.6), (13.6, 20.0)]
+    assert speech_chunks([(5.0, 6.0), (0.0, 1.0)], max_pause=1.0, max_len=10.0) == [(0.0, 1.0), (5.0, 6.0)]
+    assert speech_chunks([]) == []
+
+
+def test_clean_span_text_drops_hallucinations_and_the_describers_credit():
+    assert clean_span_text(" Farah odaya  girdi. ") == "Farah odaya girdi."
+    assert clean_span_text("Altyazı M.K.") is None
+    assert clean_span_text("Bu dizinin betimlemesi TRT tarafından Sesli Betimleme Derneğine yaptırılmıştır.") is None
+    assert clean_span_text("...") is None

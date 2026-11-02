@@ -206,10 +206,17 @@ suggested order). The three tag pages share one layout, so only the setup names 
   yanağına aktı. Zaman yavaş Mustafa sessizce ağlıyor."); the rest are song lyrics. Named 11, resolved to a
   speaker cluster 1. Linked lines: 9 rows; projected to 1,017 episodes: happy ~100 (song lyrics), every other
   class 0. The plan's bar is ~2,000 per class.
-- Check that Whisper is not just missing the narrator: Whisper on the first 3 min of Filinta 51 (whole audio, no
-  VAD) finds the subtitle dialogue and nothing in the 14 s and 11 s gaps; YouTube offers one Turkish audio track
-  for the episode (`yt-dlp -F`), so the download did not skip a description track. Only a few real
-  descriptions turn up across the 20 episodes ("Şimdi Abdülkadir'in asabını iyice bozdu.").
-- **Result: these uploads carry the describer's credit and very few descriptions, so the narrator cannot supply
-  emotion labels at volume. Stopped per the plan (Step 3 bar); Steps 4-5 not run.** Listening check of 5 clips
-  (2 empty gaps, 3 of the few description hits): `data/listening_sample/narration_check.html`, answer pending.
+- ~~Result: the uploads hold almost no description~~ **Wrong: Whisper skips the narrator.** The listener hears the
+  describer in all four check clips (`data/listening_sample/narration_check.html`; clip 5 is the film's own poem
+  reading), including two gaps where Whisper wrote nothing. Whisper on the clips alone, with every skip threshold
+  off, with a narrator-style prompt, or without timestamps, still jumps over the narration (clip 1: 2.0 s to 16.0 s
+  with speech-level audio in between) or writes the credit line "Bu dizinin betimlemesi ..." in its place; it was
+  trained on subtitles, which never contain the description. YouTube has one Turkish audio track per episode, so
+  the description is in the downloaded audio.
+- Two other model families do transcribe it. Clip 2 (gap only): Seamless M4T v2 "Arkasında ki raftan aldığı siyah
+  çitli kalın defteri masada açıyor.Farağla birlikte inceliyorlar."; MMS 1b-all "arkasındaki raftan aldığı siyahaç itlii kalın
+  depteri masada açıyor ...". Seamless keeps capitals and punctuation (names and sentences need them); on a 14 s
+  input it dropped the first half, so it gets chunks of at most 10 s.
+- `transcribe_narration.py` now runs Seamless on Silero VAD speech inside the gaps (`narration.speech_chunks`,
+  `narration.clean_span_text`). The pilot is re-run with it; the Whisper output is kept as
+  `data/dataset/narration_whisper*.jsonl` on astrobot.

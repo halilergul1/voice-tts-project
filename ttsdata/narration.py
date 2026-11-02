@@ -129,6 +129,30 @@ def narration_gaps(cues: list[tuple[float, float]], total: float, min_gap: float
     return out
 
 
+def clean_span_text(text: str) -> str | None:
+    """A recogniser's text with known hallucinations removed and spaces collapsed; None when no word is left or the
+    text is the describer's intro / outro ("... betimlemesi ...", "izlediğiniz için teşekkür ederiz")."""
+    text = re.sub(r"\s+", " ", HALLUCINATION_RE.sub(" ", text)).strip()
+    if not re.search(r"\w\w", text) or _BOILERPLATE_RE.search(tr_lower(text)):
+        return None
+    return text
+
+
+def speech_chunks(speech: list[tuple[float, float]], max_pause: float = 1.0,
+                  max_len: float = 10.0) -> list[tuple[float, float]]:
+    """Speech segments (seconds) grouped into recogniser inputs: neighbours closer than `max_pause` merge while the
+    chunk stays within `max_len`; a longer single segment is cut into equal pieces of at most `max_len`."""
+    out: list[tuple[float, float]] = []
+    for a, b in sorted(speech):
+        if out and a - out[-1][1] <= max_pause and b - out[-1][0] <= max_len:
+            out[-1] = (out[-1][0], b)
+            continue
+        n = max(1, -(-(b - a) // max_len))
+        step = (b - a) / n
+        out += [(round(a + k * step, 3), round(a + (k + 1) * step, 3)) for k in range(int(n))]
+    return out
+
+
 def spans_from_words(words: list[dict], max_pause: float = 1.5) -> list[dict]:
     """Group Whisper words ({word, start, end}) into spans at pauses longer than `max_pause`; known Whisper
     hallucinations are removed, spans left without words and the describer's intro / outro ("... betimlemesi ...",
@@ -141,7 +165,7 @@ def spans_from_words(words: list[dict], max_pause: float = 1.5) -> list[dict]:
             groups.append([w])
     out = []
     for g in groups:
-        text = re.sub(r"\s+", " ", HALLUCINATION_RE.sub(" ", " ".join(w["word"].strip() for w in g))).strip()
-        if re.search(r"\w\w", text) and not _BOILERPLATE_RE.search(tr_lower(text)):
+        text = clean_span_text(" ".join(w["word"].strip() for w in g))
+        if text:
             out.append({"start": round(g[0]["start"], 3), "end": round(g[-1]["end"], 3), "text": text})
     return out
