@@ -1,0 +1,458 @@
+{
+ "date": "2026-11-02",
+ "what": "Task 3B Step 5 second page: 8 fresh narrator-linked lines per class, label shown, user answers true/false/unsure",
+ "summary": {
+  "scared": {
+   "false": 7,
+   "-": 1,
+   "true": 0
+  },
+  "narration_noname": {
+   "false": 15,
+   "unsure": 2,
+   "true": 8
+  },
+  "e2v_disagrees": {
+   "false": 22,
+   "true": 9,
+   "unsure": 1,
+   "-": 1
+  },
+  "all": {
+   "false": 25,
+   "true": 12,
+   "unsure": 2,
+   "-": 1
+  },
+  "surprised": {
+   "false": 5,
+   "true": 3
+  },
+  "narration": {
+   "false": 10,
+   "true": 4,
+   "-": 1
+  },
+  "sad": {
+   "true": 6,
+   "false": 2
+  },
+  "happy": {
+   "false": 5,
+   "true": 2,
+   "unsure": 1
+  },
+  "angry": {
+   "false": 6,
+   "unsure": 1,
+   "true": 1
+  },
+  "e2v_agrees": {
+   "false": 3,
+   "true": 3,
+   "unsure": 1
+  }
+ },
+ "items": [
+  {
+   "card": 1,
+   "clip": "CxPUA_vyFLg_00792",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Mahmut açık havada güya haritayı inceliyor, panikleyip düzünü çevirdi.",
+   "e2v_top": "happy",
+   "e2v_target": 0.0,
+   "answer": "false"
+  },
+  {
+   "card": 2,
+   "clip": "cnqhMeiZ2AA_00285",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "sözlerinde bir mana çıkarmış gibi şaşkınca bakıp önüne döndü.",
+   "e2v_top": "happy",
+   "e2v_target": 0.0,
+   "answer": "false"
+  },
+  {
+   "card": 3,
+   "clip": "g6yvs1f4S1s_01425",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Çidemle Fatma korka korka geldiler.",
+   "e2v_top": "angry",
+   "e2v_target": 0.021,
+   "answer": "false"
+  },
+  {
+   "card": 4,
+   "clip": "ET85vl6YRBE_00071",
+   "narrator": "surprised",
+   "source": "narration",
+   "desc": "Ceyda'nın yüzünde şaşkınlık hali.",
+   "e2v_top": "angry",
+   "e2v_target": 0.011,
+   "answer": "false"
+  },
+  {
+   "card": 5,
+   "clip": "uvRXGyMi-I4_01445",
+   "narrator": "sad",
+   "source": "narration",
+   "desc": "Ersin'in masa başında ağladığını",
+   "e2v_top": "happy",
+   "e2v_target": 0.15,
+   "answer": "true"
+  },
+  {
+   "card": 6,
+   "clip": "DzDtH4ybX-k_01107",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Bilmem diye dudak büktü. Merdivenlerden inen Dudu'nun gözleri dehşetle açıldı. Halil çabuk gel yaptı eliyle kolundan tutup kenara çekti.",
+   "e2v_top": "angry",
+   "e2v_target": 0.0,
+   "answer": "false"
+  },
+  {
+   "card": 7,
+   "clip": "MGR4lQCYlRQ_00060",
+   "narrator": "happy",
+   "source": "narration",
+   "desc": "Kasım gülümsedi.",
+   "e2v_top": "sad",
+   "e2v_target": 0.004,
+   "answer": "false"
+  },
+  {
+   "card": 8,
+   "clip": "PPjvKfcmY6E_00509",
+   "narrator": "sad",
+   "source": "narration",
+   "desc": "Zehra ağladı ağlayacak, gözleri dolu dolu,",
+   "e2v_top": "fearful",
+   "e2v_target": 0.335,
+   "answer": "true"
+  },
+  {
+   "card": 9,
+   "clip": "74xhLbzeNU0_00371",
+   "narrator": "surprised",
+   "source": "narration",
+   "desc": "Kapıdan içeri giren kişi Erdem. Erdem ellerini arkasında kavuşturmuş, şaşkınca ona bakarak gezinir gibi arkasından pencereye yürüdü. Dışarı bakıyor.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.015,
+   "answer": "false"
+  },
+  {
+   "card": 10,
+   "clip": "291AcgKPm4k_00614",
+   "narrator": "angry",
+   "source": "narration",
+   "desc": "Ömer öfke dolu gözlerle Mahir'e baktı.",
+   "e2v_top": "sad",
+   "e2v_target": 0.002,
+   "answer": "false"
+  },
+  {
+   "card": 11,
+   "clip": "YN6xuSz86PA_00915",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "Şoförün açtığı arka kapıdan Sina çıkıyor. Gergin ve öfkeli, arabaya yaslanıp ellerini cebine koyarken evin çevresine göz gezdirdi.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.003,
+   "answer": "unsure"
+  },
+  {
+   "card": 12,
+   "clip": "BeCS4X5oyXQ_00863",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "Ortalığı atıp telefonun üstüne telaşla vurup kapatarak bıraktım. Feryan şaşkın aldı elini, sefer boş boş sırıtırken Nuri'yle Halil apallamış bakıştılar.",
+   "e2v_top": "happy",
+   "e2v_target": 0.0,
+   "answer": "true"
+  },
+  {
+   "card": 13,
+   "clip": "TJwHXrRuJGw_01103",
+   "narrator": "angry",
+   "source": "narration",
+   "desc": "Mustafa sinir olsa da sesini çıkarmazken Mehmet geldi.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.0,
+   "answer": "false"
+  },
+  {
+   "card": 14,
+   "clip": "DIx0ycR6crY_01232",
+   "narrator": "happy",
+   "source": "narration",
+   "desc": "Dilek şık şık kadın mutfağa geldi ve gülümseyerek karşılarında durdu.",
+   "e2v_top": "happy",
+   "e2v_target": 0.993,
+   "answer": "false"
+  },
+  {
+   "card": 15,
+   "clip": "LSYHLGiBhDE_01969",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "oturturup karşıdaki kolcaya çöktü. Kızlar üzgün. İbrahim düşünceli",
+   "e2v_top": "surprised",
+   "e2v_target": 0.151,
+   "answer": "true"
+  },
+  {
+   "card": 16,
+   "clip": "EvSVykyXNGE_00949",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "Vadigül ağlamakla çenesi belli belirsiz titredi.",
+   "e2v_top": "happy",
+   "e2v_target": 0.242,
+   "answer": "true"
+  },
+  {
+   "card": 17,
+   "clip": "MGR4lQCYlRQ_00069",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "Sonra düşündü, ardından küskün ifadesiyle buruk tebessüm ederek geri bıraktı tezbehini.",
+   "e2v_top": "sad",
+   "e2v_target": 1.0,
+   "answer": "true"
+  },
+  {
+   "card": 18,
+   "clip": "H2h6mFizN7w_01132",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "bize şaşkın düşünceli Efsun elini perdenin indirip keyifle ona bakıyor. Küçük Maben Kışkı. Abdulhamid makamında.",
+   "e2v_top": "surprised",
+   "e2v_target": 0.895,
+   "answer": "false"
+  },
+  {
+   "card": 19,
+   "clip": "0Ds-YHpC-54_00552",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Hani sevinçinden ağlayarak okumayı bıraktı.",
+   "e2v_top": "happy",
+   "e2v_target": 1.0,
+   "answer": "true"
+  },
+  {
+   "card": 20,
+   "clip": "7jeix93mmWE_00016",
+   "narrator": "angry",
+   "source": "narration",
+   "desc": "William kapı sesine dönüp hışımla ayağa kalktı. Parvus'u karşıladı. Parvus gözlerini sinirle",
+   "e2v_top": "surprised",
+   "e2v_target": 0.209,
+   "answer": "true"
+  },
+  {
+   "card": 21,
+   "clip": "Q6GR7X7d8k4_01460",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Biricik rahatlamış bir halde gülümsüyor etrafta. Rüyamın suratı ısıtılmış. Serpil ve Badire göz göze geldiler ikisi de mahçup.",
+   "e2v_top": "happy",
+   "e2v_target": 0.984,
+   "answer": "true"
+  },
+  {
+   "card": 22,
+   "clip": "_mKKIrmX2EI_00508",
+   "narrator": "surprised",
+   "source": "narration",
+   "desc": "Zehra yazık odasına girdi Ömer odada değil Zehra şaşkınlıkla kırmızı koltuğun yerine konmuş iki tane yeşil tekli koltuğa bakıyor.",
+   "e2v_top": "fearful",
+   "e2v_target": 0.056,
+   "answer": "true"
+  },
+  {
+   "card": 23,
+   "clip": "HXL-YZvY6zE_00604",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Ömer ayakta kaşları çatık duruyor Türk bayrağı önünde. Yıldırım gelir kapıdan içeri. İçeriği ürkütücü gençlerle kalabalık.",
+   "e2v_top": "angry",
+   "e2v_target": 0.028,
+   "answer": "false"
+  },
+  {
+   "card": 24,
+   "clip": "3aUTbWogu4E_00138",
+   "narrator": "sad",
+   "source": "narration",
+   "desc": "Parvus üzgün, canı fena sıkın, pencereden çekilip birkaç adım ötede durdu.",
+   "e2v_top": "sad",
+   "e2v_target": 0.772,
+   "answer": "false"
+  },
+  {
+   "card": 25,
+   "clip": "DbgQTioVJoA_00241",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "önlerinden sinirle yürüyen",
+   "e2v_top": "neutral",
+   "e2v_target": 0.009,
+   "answer": "false"
+  },
+  {
+   "card": 26,
+   "clip": "zNi80TVchEk_00142",
+   "narrator": "scared",
+   "source": "narration",
+   "desc": "devam etti. Mustafa yüzlerini çatmış dehşetle etrafına bakıyor.",
+   "e2v_top": "sad",
+   "e2v_target": 0.002,
+   "answer": "false"
+  },
+  {
+   "card": 27,
+   "clip": "k_I6Uv8L1jU_00069",
+   "narrator": "scared",
+   "source": "narration",
+   "desc": "Zümrüt korkarak arabadan iniyor.",
+   "e2v_top": "happy",
+   "e2v_target": 0.001,
+   "answer": "-"
+  },
+  {
+   "card": 28,
+   "clip": "2vWa_oQ0Tso_01884",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "Çener kendine kızgın başını salladı.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.0,
+   "answer": "false"
+  },
+  {
+   "card": 29,
+   "clip": "YN6xuSz86PA_00142",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Elim kirli tabakları kucaklayarak içeri girdi. Nail umutla gülümsedi.",
+   "e2v_top": "happy",
+   "e2v_target": 0.607,
+   "answer": "unsure"
+  },
+  {
+   "card": 30,
+   "clip": "S0djooO2H3M_01676",
+   "narrator": "happy",
+   "source": "narration",
+   "desc": "Sabit gözleri yere çakılı dalmış gitmiş oturuyor. Ersin gülümserken başını televizyondan çevirip İsmail'e döndü. Haline üzgün.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.242,
+   "answer": "false"
+  },
+  {
+   "card": 31,
+   "clip": "a5oQSIf9isU_01960",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "İni benimde öfkesi gitgide artıyor gibi duruyor. Güneş denizin üzerinden doğmakta okulun arka bahçesinde kocaman bir atletizm ve basketbol sahaları var.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.006,
+   "answer": "false"
+  },
+  {
+   "card": 32,
+   "clip": "KYGdyOPltx4_00159",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "Şaşkın bakışları oradan alamadan mutfağa gidiyor.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.011,
+   "answer": "false"
+  },
+  {
+   "card": 33,
+   "clip": "CxPUA_vyFLg_00689",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Gülümseyerek kafa salladı, Osman içkilendi, gözlerini boşlukta gezdirerek düşündü.",
+   "e2v_top": "angry",
+   "e2v_target": 0.0,
+   "answer": "false"
+  },
+  {
+   "card": 34,
+   "clip": "W-oCFdpz1Rs_00124",
+   "narrator": "scared",
+   "source": "narration",
+   "desc": "Nihat'la karşı karşıya gelince panikleyerek geri adımı attı.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.002,
+   "answer": "false"
+  },
+  {
+   "card": 35,
+   "clip": "v-h0tBb2hGU_01319",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "Budisi Şükriye ve İstanbül şaşırıp bakıştılar",
+   "e2v_top": "sad",
+   "e2v_target": 0.086,
+   "answer": "true"
+  },
+  {
+   "card": 36,
+   "clip": "g6yvs1f4S1s_00798",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "kapattı ağlamakla olup yüzünü bülüştürdü.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.186,
+   "answer": "false"
+  },
+  {
+   "card": 37,
+   "clip": "WuJWc_b33FA_00261",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Zehra gerildi. Gülümseyerek yeniden kucaklayan Sevim sırtını pat patlarken belli belirsiz yüzünü ekşitti. Geri çekildiler.",
+   "e2v_top": "sad",
+   "e2v_target": 0.369,
+   "answer": "false"
+  },
+  {
+   "card": 38,
+   "clip": "ENOVyCUQnA0_00682",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Selahattinler paniklediler. Kızıl şapkasıyla seyrederken yuvarlanınca almaya uzanmışlar.",
+   "e2v_top": "sad",
+   "e2v_target": 0.001,
+   "answer": "false"
+  },
+  {
+   "card": 39,
+   "clip": "zfhP71i_ozQ_00058",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "Galiba sinirden yere dövdü.",
+   "e2v_top": "fearful",
+   "e2v_target": 0.003,
+   "answer": "false"
+  },
+  {
+   "card": 40,
+   "clip": "v-h0tBb2hGU_00040",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "Yüzü ağlamakla kısıldı.",
+   "e2v_top": "fearful",
+   "e2v_target": 0.213,
+   "answer": "true"
+  }
+ ]
+}

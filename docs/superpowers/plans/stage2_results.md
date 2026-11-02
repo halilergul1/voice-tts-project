@@ -298,3 +298,19 @@ descriptions). 4.9 min wall, real-time factor 0.007 on the gaps: **the full 1,01
 - Decision: narrator alone fails the 0.76 bar for angry, happy, scared and surprised, so those labels stay out of
   training, and no new style (crying, scared, surprised) enters stage 2. Sad is 4/5, a pass on very few clips.
   Narrator + emotion2vec+ agreement is right every time, but those clips are ones emotion2vec+ already labels.
+
+Second page at the user's request, label shown (`data/listening_sample/narration_labelled.html`): 8 fresh linked
+lines per class (3 named, 5 no-name, none from the first page), answered true / false / unsure. Answers in
+`calibration/narration_labelled_2026-11-02.json`.
+
+| narrator label | true (labelled page) | blind page | both |
+|---|---|---|---|
+| sad | 6/8 | 4/5 | 10/13 (0.77) |
+| surprised | 3/8 | 1/5 | 4/13 |
+| happy | 2/8 | 2/5 | 4/13 |
+| angry | 1/8 | 1/5 | 2/13 |
+| scared | 0/8 | 0/5 | 0/13 |
+
+- Seeing the label did not rescue the other classes: 12/40 true overall. Named links 4/15, no-name 8/25.
+- Decision: narrator-sad lines (1,887) pass the 0.76 bar on 13 clips and enter training as sad. Angry, happy,
+  scared and surprised narrator labels stay out.
