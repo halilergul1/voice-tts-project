@@ -314,3 +314,20 @@ lines per class (3 named, 5 no-name, none from the first page), answered true / 
 - Seeing the label did not rescue the other classes: 12/40 true overall. Named links 4/15, no-name 8/25.
 - Decision: narrator-sad lines (1,887) pass the 0.76 bar on 13 clips and enter training as sad. Angry, happy,
   scared and surprised narrator labels stay out.
+
+### Qwen3-Omni against emotion2vec+ (user's question: is there a stronger, newer model?)
+
+2026-11-02, `scripts/omni_rater.py` on the 300 clips rated by ear on 2026-10-27 (268 with a rating and both
+scores). Qwen3-Omni-30B-A3B-Instruct, bf16 split between GPU and CPU (bitsandbytes cannot quantise its fused expert
+weights), ~1.7 s per clip; confidence = next-token probability of each class word. Report in
+`calibration/OMNI_RATER_qwen3-omni_2026-11-02.md`.
+
+| | Qwen3-Omni | emotion2vec+ |
+|---|---|---|
+| top class right (angry / happy / sad / neutral) | 175/268 | 172/268 |
+| angry, 30 most confident | 25/30 | 30/30 |
+| sad, 30 most confident | 20/30 | 23/30 |
+| happy, 30 most confident | 11/30 | 16/30 |
+
+- Same overall accuracy, worse at the confident end, which is the part the labels use. emotion2vec+ stays.
+  Caveat: the clips were sampled 60 per emotion2vec+ class, which may flatter emotion2vec+ somewhat.
