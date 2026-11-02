@@ -265,6 +265,11 @@ def main() -> int:
         short = [r for r in tier if r["duration"] < 3.0]
         n_short = (len(short), sum(r["duration"] for r in short) / 3600)
         print(f"short labelled lines: {n_short[0]} clips ({n_short[1]:.2f} h) of {a.label_min_dur}-3 s join the tier")
+    if a.stage >= 2:  # the whole tier with its label flag: scripts/make_anchor_set.py picks plain sentences from it
+        with (out / "tier_rows.jsonl").open("w", encoding="utf-8") as f:
+            for r in tier:
+                f.write(json.dumps({"id": r["id"], "normalized_text": r["normalized_text"], "duration": r["duration"],
+                                    "split": r.get("split"), "labelled": bool(labels_of(r))}, ensure_ascii=False) + "\n")
 
     # stage 2: labelled clips go in first (rarest label first, --label-quota each, at most --label-max-share of the
     # hours), so a random slice of a much bigger tier does not sample the rare tags away; the random fill then takes
