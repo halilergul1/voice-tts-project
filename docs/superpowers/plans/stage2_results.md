@@ -385,3 +385,51 @@ about 15/22 = 68% same against the 80% bar. Run 2a builds with `--tags-exclude c
 back to their base clips. Getting `[ağlama]` back is stage 3 work and needs a way to tell whose cry it is (for
 example scenes with one person on screen, or a cry detector), not more of the same clips.
 
+
+## Task 5: training data (2026-11-03)
+
+### Restored-only rebuild (Step 3)
+
+`data/voxcpm_stage2` rebuilt on astrobot (old build kept as `data/voxcpm_stage2_prev`), the Step 3 command with
+`--narration-styles data/dataset/narration_styles_sad.jsonl` (sad rows only, 1,912 lines; the narrator's other
+classes failed by ear) and `--tags-exclude cry`:
+
+| label | kind | in tier | in slice | written |
+|---|---|---|---|---|
+| sad | style | 16,254 | 6,002 | yes |
+| angry | style | 11,493 | 6,001 | yes |
+| happy | style | 22,870 | 6,000 | yes |
+| laugh | event | 1,294 | 1,294 | yes |
+| breath | event | 252 | 252 | yes |
+| cry | event | 128 | 128 | no (excluded) |
+| cough | event | 36 | 36 | no (< 150) |
+
+- Train 18,360 / val 315, every train row labelled (34,744 plain corpus rows dropped), no FLEURS rows, 14,753
+  labelled rows with a plain same-speaker reference (0.8). Every style at its 6,000 quota; none under 3,000.
+- Narrator-sad adds little: of 1,887 linked lines, 1,359 are under 3 s (the tier minimum) and only 307 were restored
+  by Sidon (Task 3A ran before the narrator labels existed), so 203 reach the tier and 111 the slice (76 narration
+  only, 35 both). Not worth a Sidon pass for run 2a.
+- The build now also writes `tier_rows.jsonl` (id, text, duration, split, labelled) for the anchor sentence picker.
+
+### Does Sidon keep the style? (Step 4)
+
+200 written train clips per style, the same clips as `wavs_clean` and `wavs_sidon` (`score_styles.py --wavs`):
+
+| style | hit rate clean | hit rate Sidon | ratio | target post clean / Sidon |
+|---|---|---|---|---|
+| angry | 0.98 | 0.88 | 0.90 | 0.92 / 0.81 |
+| happy | 0.98 | 0.83 | 0.85 | 0.97 / 0.74 |
+| sad | 0.92 | 0.78 | 0.85 | 0.78 / 0.62 |
+
+All three above the 0.8× bar, so training stays on `wavs_sidon`. The clean hit rates are near 1 because the labels
+were chosen by emotion2vec+ on the raw TV audio (`wavs`), which the separated copy stays close to; Sidon costs 10-15
+points of emotion2vec+ hit rate on every style.
+
+### Anchor set (Step 5)
+
+`--limit 200` test (S1 exactly: clip B as prompt and reference, cfg 3.0, no prefix): WER 0.022, UTMOS 3.11 (p10
+2.75), voice consistency 0.827, RTF 0.30 (1.67 s per clip of 5.6 s). `anchor_keep` keeps 154 of 200 (77%: 167
+with WER 0, 185 with voice cos ≥ 0.75, none read aloud). At 77%, the plan's 1.25 × 18,360 = 22,950 sentences would
+give about 17,700 anchors, short of the 18,360 needed, so the sentence file is 25,000 (the first 22,950 unchanged;
+synthesis resumes). Full run started 2026-11-03 00:18 in tmux `s2anchor`, marker `data/logs/s2_anchor_done_0`;
+estimate about 12 h of synthesis plus 2-3 h of scoring.

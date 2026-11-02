@@ -575,7 +575,7 @@ Decision rule: a label whose best setup already meets its Task 7 gate (style: li
 - `anchor_keep(score: dict, min_ref_cos: float = 0.75) -> bool`: keep when `wer == 0`, `read_aloud == []`, `spk_cos` (to the run centre) ≥ `min_ref_cos`, and `utmos` is not None. (High-voice drift shows up as low `spk_cos`.)
 - `make_anchor_set.py sentences --n N --out data/eval/anchor_sentences.txt`; `make_anchor_set.py export --run s2_anchor --sentences data/eval/anchor_sentences.txt --out data/anchor_base` → `<k>.wav` (resampled to 24 kHz, −20 LUFS via `ttsdata.build._loudness_normalize`) + `<k>.txt`, and a printed keep rate.
 
-- [ ] **Step 1: Write the failing tests** (`tests/test_anchors.py`)
+- [x] **Step 1: Write the failing tests** (`tests/test_anchors.py`)
 
 ```python
 from ttsdata.anchors import pick_sentences, anchor_keep
@@ -594,11 +594,11 @@ def test_anchor_keep():
     assert not anchor_keep({**ok, "wer": 0.1}) and not anchor_keep({**ok, "spk_cos": 0.6})
 ```
 
-- [ ] **Step 2: Run, implement, run again**
+- [x] **Step 2: Run, implement, run again** (2026-11-03, f99c24f: the manifest writes `<out>/tier_rows.jsonl` with each tier row's `labelled` flag, and `make_anchor_set.py sentences --tier` reads it, rather than factoring `labels_of` out of the script)
 
 Run: `.venv/bin/python -m pytest tests/test_anchors.py -v` (FAIL `ModuleNotFoundError`), implement `ttsdata/anchors.py` and the script, run again (2 PASS). Rows passed to `pick_sentences` get `labelled` from the stage 2 tier (the script computes it with the same `labels_of` logic; factor it out of `make_voxcpm_manifest.py` into `ttsdata/manifest.py` if needed rather than copying it).
 
-- [ ] **Step 3: Rebuild `data/voxcpm_stage2`** on astrobot (CPU; keep the old build as `data/voxcpm_stage2_prev`)
+- [x] **Step 3: Rebuild `data/voxcpm_stage2`** (2026-11-03; narrator labels from `narration_styles_sad.jsonl`, sad only; label table in `stage2_results.md`) on astrobot (CPU; keep the old build as `data/voxcpm_stage2_prev`)
 
 ```bash
 cd ~/voice-data && mv data/voxcpm_stage2 data/voxcpm_stage2_prev
@@ -614,7 +614,7 @@ Expected: `tier_report.md` lists per label the clips in tier, in slice and writt
 
 `[ağlama]` is out of run 2a (cry check 2 failed, Task 3C Step 4): cry event clips hand their place back to their base clips, and the cry tag goes back to metadata as stage 3 work. Event clips flagged by Task 3C (another person's sound, narrator over the sound) are out for every other tag.
 
-- [ ] **Step 4: Does Sidon keep the style?** (GPU, ~15 min, ask first)
+- [x] **Step 4: Does Sidon keep the style?** (2026-11-03: Sidon/clean hit rate 0.90 angry, 0.85 happy, 0.85 sad; all pass) (GPU, ~15 min, ask first)
 
 For 200 written clips per style, score both `wavs_clean` and `wavs_sidon` copies: `score_styles.py --wavs <folder of symlinks> --target <style> --run s2_sidoncheck_<style>_<wavs>`. Record hit rates. If the Sidon hit rate is under 0.8 × the `wavs_clean` hit rate for a style, stop and ask the user before training (Sidon is flattening that style).
 

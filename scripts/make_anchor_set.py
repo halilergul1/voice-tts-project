@@ -29,8 +29,8 @@ def load_jsonl(p: Path) -> list[dict]:
 def cmd_sentences(a) -> None:
     rows = load_jsonl(Path(a.tier))
     out = Path(a.out)
-    exclude = {l.strip() for p in sorted(EVAL_DIR.glob("*.txt")) if p.resolve() != out.resolve()
-               for l in p.read_text(encoding="utf-8").splitlines() if l.strip()}
+    exclude = {l.strip() for p in sorted(EVAL_DIR.glob("*.txt")) if not p.name.startswith("anchor_sentences")
+               and p.resolve() != out.resolve() for l in p.read_text(encoding="utf-8").splitlines() if l.strip()}
     picked = pick_sentences(rows, exclude, a.n, a.seed)
     out.write_text("\n".join(picked) + "\n", encoding="utf-8")
     n_plain = sum(1 for r in rows if r.get("split") == "train" and not r.get("labelled"))
