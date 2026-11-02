@@ -477,7 +477,7 @@ Cry check 1 (2026-11-01, `data/listening_sample/stage2_cry_check.html`): the use
   - `pitch_conflict(ext_f0: float | None, line_gender: str | None, male_line_max: float = 260.0, female_line_min: float = 140.0) -> bool`: male line with an extension median F0 ≥ 260 Hz, or female line with ≤ 140 Hz (crying raises pitch, so the bars sit well outside `voicegender`'s 150 / 175 Hz).
   - `event_checks.jsonl` rows `{id, narrator, who_conflict, pitch_conflict, ext_f0}`; a row is flagged when any check is true.
 
-- [ ] **Step 1: Write the failing tests** (`tests/test_eventclean.py`)
+- [x] **Step 1: Write the failing tests** (`tests/test_eventclean.py`)
 
 ```python
 from ttsdata.eventclean import narrator_overlap, who_conflict, pitch_conflict
@@ -501,15 +501,15 @@ def test_pitch_conflict():
     assert not pitch_conflict(None, "male") and not pitch_conflict(300.0, None)
 ```
 
-- [ ] **Step 2: Run, implement, run again**
+- [x] **Step 2: Run, implement, run again**
 
 Run: `.venv/bin/python -m pytest tests/test_eventclean.py -v` (FAIL `ModuleNotFoundError`, then 3 PASS); add a manifest test that a flagged event clip hands its place back to its base.
 
-- [ ] **Step 3: Run `scripts/check_events.py`** on astrobot after Task 3B Step 4 (CPU; F0 on the extension part of each event clip's `wavs_clean` audio). Expected: counts flagged per check and per tag in `stage2_results.md`.
+- [x] **Step 3: Run `scripts/check_events.py`** on astrobot after Task 3B Step 4 (CPU; F0 on the extension part of each event clip's `wavs_clean` audio). Expected: counts flagged per check and per tag in `stage2_results.md`.
 
 - [ ] **Step 4: Cry check 2** (blind page, one-off builder like `data/cry_page.py` or `blind_page.py style`): 30 cry clips that pass the checks + 10 flagged ones, mixed; answers "same person crying / another person crying / narrator talks / nothing". Gate (my call): among passing clips ≥ 24 of 30 "same person crying" and ≤ 1 "narrator talks". If it fails, tighten the bars (`min_sec`, F0) once and re-check; a second failure leaves `[ağlama]` out of run 2a.
 
-- [ ] **Step 5: Commit** `ttsdata/eventclean.py`, `scripts/check_events.py`, the manifest change and tests.
+- [x] **Step 5: Commit** `ttsdata/eventclean.py`, `scripts/check_events.py`, the manifest change and tests.
 
 ---
 
