@@ -39,6 +39,7 @@ from ttsdata.manifest import (cap_hours, combine_events, combine_units, folder_r
                               keep_short_labelled, load_narration_styles, manifest_row, neutral_ref_ok, pair_neutral_refs,
                               pair_references, restore_bases, restored_only, row_labels, stage_filter, tier_funnel,
                               validate_row)
+from ttsdata.eventclean import flagged_ids  # noqa: E402
 from ttsdata.voicegender import DESCRIPTIONS, describe  # noqa: E402
 
 
@@ -104,6 +105,8 @@ def main() -> int:
     ap.add_argument("--events-root", default="data/dataset_events", help="event-extended clips (ttsdata extend-events); '' to skip")
     ap.add_argument("--events-wavs", default="wavs_clean")
     ap.add_argument("--event-evidence", default="laugh_syllables,tagger,clean", help="accepted verification evidence levels")
+    ap.add_argument("--event-checks", default="", help="stage 2: event_checks.jsonl (scripts/check_events.py); flagged "
+                    "event clips leave and their base clip returns")
     ap.add_argument("--include-unconfirmed", action="store_true", help="also take unconfirmed event clips (stage 2)")
     ap.add_argument("--include-unconfirmed-tags", default="",
                     help="stage 2: unconfirmed event clips of these tags only, e.g. 'cry' (listening check 2026-11-01)")
@@ -283,7 +286,13 @@ def main() -> int:
     styles_ok, events_ok = (allowed_labels(styles_seen, tags_seen, a.min_style, a.min_tag, exclude=exclude)
                             if a.stage >= 2 else (set(), set()))
     if a.stage >= 2:  # an event clip whose tag is not written would carry an untagged sound: back to its base
-        slice_rows = restore_bases(slice_rows, events_ok, units, quality, **tier_kw)
+        flagged = flagged_ids(load_jsonl(Path(a.event_checks))) if a.event_checks else set()
+        n_before = sum(1 for r in slice_rows if r["root"] == "dataset_events")
+        slice_rows = restore_bases(slice_rows, events_ok, units, quality, flagged=flagged, **tier_kw)
+        if a.event_checks:
+            n_after = sum(1 for r in slice_rows if r["root"] == "dataset_events")
+            print(f"event checks: {len(flagged)} flagged clips in {a.event_checks}; event clips in the slice "
+                  f"{n_before} -> {n_after}")
     # reference pairs are drawn after the slice is final, so no row points at a clip that left it
     train_rows = [r for r in slice_rows if r.get("split") != "val"]
     val_rows = [r for r in slice_rows if r.get("split") == "val"]

@@ -114,14 +114,17 @@ def combine_events(units: list[dict], events: list[dict], quality: dict[str, dic
     return out
 
 
-def restore_bases(rows: list[dict], events_ok: set[str], units: list[dict], quality: dict[str, dict], **tier_kw) -> list[dict]:
+def restore_bases(rows: list[dict], events_ok: set[str], units: list[dict], quality: dict[str, dict],
+                  flagged: set[str] | None = None, **tier_kw) -> list[dict]:
     """Stage 2: an event-extended row whose tag will not be written (rarer than --min-tag) would train an untagged
     laugh as plain speech, so it leaves the slice and its base clip (from the units before combine_events) returns in
-    its place when that base passes the tier on its own."""
+    its place when that base passes the tier on its own. Rows in `flagged` (ttsdata.eventclean: narrator over the
+    sound, or the sound from another person) leave the same way."""
     by_id = {u["id"]: u for u in units}
+    flagged = flagged or set()
     out = []
     for r in rows:
-        if r.get("root") != "dataset_events" or r.get("tag") in events_ok:
+        if r.get("root") != "dataset_events" or (r.get("tag") in events_ok and r["id"] not in flagged):
             out.append(r)
             continue
         base = by_id.get(r.get("base"))

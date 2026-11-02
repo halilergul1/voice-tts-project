@@ -331,3 +331,29 @@ weights), ~1.7 s per clip; confidence = next-token probability of each class wor
 
 - Same overall accuracy, worse at the confident end, which is the part the labels use. emotion2vec+ stays.
   Caveat: the clips were sampled 60 per emotion2vec+ class, which may flatter emotion2vec+ somewhat.
+
+## Task 3C: event clips, same person, no narrator
+
+2026-11-02, `scripts/check_events.py` on astrobot (CPU, ~10 min), `data/dataset_events/event_checks.jsonl`. Narrator =
+extension overlaps a Seamless narrator span by ≥ 0.3 s (TRT only); who = subtitle names another speaker cluster;
+pitch = extension median F0 ≥ 260 Hz on a male line or ≤ 140 Hz on a female line. All event clips, before the
+manifest's evidence gate:
+
+| tag | clips | narrator | who | pitch | flagged | kept |
+|---|---|---|---|---|---|---|
+| laugh | 5,184 | 1,455 | 69 | 257 | 1,689 | 3,495 |
+| breath | 1,222 | 460 | 24 | 78 | 516 | 706 |
+| cry | 818 | 317 | 36 | 82 | 383 | 435 |
+| cough | 392 | 146 | 16 | 43 | 181 | 211 |
+| sigh | 186 | 55 | 1 | 24 | 76 | 110 |
+| throat_clear | 145 | 55 | 9 | 13 | 66 | 79 |
+| shout | 137 | 79 | 13 | 11 | 88 | 49 |
+| moan | 110 | 56 | 4 | 6 | 62 | 48 |
+| scream | 66 | 33 | 2 | 4 | 37 | 29 |
+| yawn | 54 | 25 | 1 | 3 | 28 | 26 |
+
+- The narrator is the big one: about a third of the clips, since the describer talks in the same gaps as the sounds.
+- Cry keeps 435, above the ≥ 300 the plan wants (with unconfirmed). Laugh keeps 3,495.
+- Cry check 2 (blind, `data/listening_sample/cry_check2.html`): 30 passing + 10 flagged (5 narrator, 3 pitch,
+  2 who), key in `cry_check2.key.json`.
+

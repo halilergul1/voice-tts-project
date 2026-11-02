@@ -150,6 +150,17 @@ def test_restore_bases_returns_the_base_when_the_tag_is_not_written():
     assert [r["id"] for r in restore_bases(rows, {"laugh", "cry"}, units, q)] == ["c0_laugh", "c1", "c2_cry", "c3_cry"]
 
 
+def test_restore_bases_returns_the_base_of_a_flagged_event_clip():
+    from ttsdata.manifest import restore_bases
+    units = [{**R(0), "root": "dataset"}, {**R(1), "root": "dataset"}, {**R(2), "root": "dataset"}]
+    ev = lambda i, base, tag: {**R(i), "id": f"{base}_{tag}", "base": base, "tag": tag, "root": "dataset_events", "duration": 6.0}  # noqa: E731
+    rows = [ev(10, "c0", "cry"), units[1], ev(12, "c2", "cry")]
+    q = {r["id"]: Q(0) for r in units + rows}
+    # cry is written, but c2_cry was flagged (narrator over the cry, or another person's cry): c2 returns
+    out = restore_bases(rows, {"cry"}, units, q, flagged={"c2_cry"})
+    assert [r["id"] for r in out] == ["c0_cry", "c1", "c2"] and out[2]["root"] == "dataset"
+
+
 def _rows(n, series="A", dur=3600.0, start=0, **extra):
     return [{"id": f"{series}{start + i:04d}", "series": series, "duration": dur, **extra} for i in range(n)]
 
