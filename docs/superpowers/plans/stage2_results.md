@@ -357,3 +357,26 @@ manifest's evidence gate:
 - Cry check 2 (blind, `data/listening_sample/cry_check2.html`): 30 passing + 10 flagged (5 narrator, 3 pitch,
   2 who), key in `cry_check2.key.json`.
 
+### Cry check 2 by ear (Task 3C Step 4)
+
+User's answers 2026-11-02, `calibration/cry_check2_2026-11-02.json` (narrator wins when narrator words are anywhere
+in the clip):
+
+| group | clips | same | other person | narrator | no crying |
+|---|---|---|---|---|---|
+| pass | 30 | 17 | 7 | 3 | 3 |
+| pass, verified (no words in the extension) | 22 | 15 | 6 | 0 | 1 |
+| pass, unconfirmed | 8 | 2 | 1 | 3 | 2 |
+| flag: narrator | 5 | 0 | 0 | 3 | 2 |
+| flag: pitch | 3 | 1 | 2 | 0 | 0 |
+| flag: who | 2 | 1 | 0 | 1 | 0 |
+
+- **Gate fails**: 17/30 same (needs ≥ 24), 3 narrator (needs ≤ 1).
+- All narrator slips are unconfirmed clips (Whisper heard words in the extension or could not tell). Verified-only
+  removes them: 0/22.
+- "Another person crying" is the real fault: 6 of 22 verified clips, women crying over a woman's line, which pitch
+  cannot see. ECAPA cosine between the line part and the cry part does not separate same from other (both spread
+  from -0.07 to 0.31), as with laughs before.
+- Flagged clips hold up as rejects: 2 "same" of 10.
+- Cry clips that are verified and pass the checks: 306 (after 141, before 132, lead 33), right at `--min-tag` 300.
+

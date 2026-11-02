@@ -1,0 +1,415 @@
+{
+ "date": "2026-11-02",
+ "task": "stage 2 Task 3C Step 4, cry check 2 (blind)",
+ "choices": [
+  "same",
+  "other",
+  "narrator",
+  "nothing"
+ ],
+ "rule": "narrator wins when narrator words are anywhere in the clip",
+ "gate": "passing clips: >= 24/30 same and <= 1 narrator",
+ "result": "fail (17/30 same, 3 narrator)",
+ "rows": [
+  {
+   "card": 1,
+   "id": "lD8HLgDyl9U_01480_cry",
+   "group": "pass",
+   "series": "Seksenler",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": "female",
+   "answer": "other"
+  },
+  {
+   "card": 2,
+   "id": "GhA502GYqnI_00989_cry",
+   "group": "pass",
+   "series": "Filinta",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 3,
+   "id": "eJdWTp7DDf0_01173_cry",
+   "group": "pass",
+   "series": "Kalk Gidelim",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "narrator"
+  },
+  {
+   "card": 4,
+   "id": "lw106-7fik0_00640_cry",
+   "group": "pass",
+   "series": "Filinta",
+   "verified": true,
+   "ext_f0": 329.7,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 5,
+   "id": "S0djooO2H3M_00123_x2_cry",
+   "group": "pass",
+   "series": "Yeşil Deniz",
+   "verified": true,
+   "ext_f0": 264.8,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 6,
+   "id": "oEtGEndoDI0_01250_cry",
+   "group": "flag:pitch_conflict",
+   "series": "Lise Devriyesi",
+   "verified": true,
+   "ext_f0": 343.4,
+   "line_gender": "male",
+   "answer": "other"
+  },
+  {
+   "card": 7,
+   "id": "3Do9Fcj0Qv0_00486_cry",
+   "group": "pass",
+   "series": "Yedi Güzel Adam",
+   "verified": true,
+   "ext_f0": 288.7,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 8,
+   "id": "nJk9eKpsf3Q_00661_cry",
+   "group": "pass",
+   "series": "Zeyrek İle Çeyrek",
+   "verified": true,
+   "ext_f0": 206.5,
+   "line_gender": "female",
+   "answer": "other"
+  },
+  {
+   "card": 9,
+   "id": "OcbiPC-SeHQ_01017_cry",
+   "group": "pass",
+   "series": "Payitaht Abdülhamid",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 10,
+   "id": "NRbnbNgS2qI_01379_cry",
+   "group": "pass",
+   "series": "Yeşil Deniz",
+   "verified": false,
+   "ext_f0": 167.8,
+   "line_gender": "female",
+   "answer": "narrator"
+  },
+  {
+   "card": 11,
+   "id": "tsI6CFPkguQ_00297_cry",
+   "group": "pass",
+   "series": "Payitaht Abdülhamid",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 12,
+   "id": "mYCKzV49rx0_00450_cry_end",
+   "group": "pass",
+   "series": "Hangimiz Sevmedik",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "other"
+  },
+  {
+   "card": 13,
+   "id": "rHluLM5ghpw_00078_cry",
+   "group": "pass",
+   "series": "Seksenler",
+   "verified": true,
+   "ext_f0": 166.8,
+   "line_gender": "female",
+   "answer": "other"
+  },
+  {
+   "card": 14,
+   "id": "kNrk56Lgj74_00497_cry",
+   "group": "pass",
+   "series": "Yeşil Deniz",
+   "verified": true,
+   "ext_f0": 320.4,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 15,
+   "id": "NicxDj7joFo_00024_cry_end",
+   "group": "pass",
+   "series": "Adını Sen Koy",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 16,
+   "id": "i9AZdyMTPXs_00687_cry",
+   "group": "pass",
+   "series": "Yedi Güzel Adam",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "other"
+  },
+  {
+   "card": 17,
+   "id": "ofwzLS_BNw0_00224_cry",
+   "group": "pass",
+   "series": "Zeyrek İle Çeyrek",
+   "verified": false,
+   "ext_f0": 266.3,
+   "line_gender": "female",
+   "answer": "nothing"
+  },
+  {
+   "card": 18,
+   "id": "oG4qOAIaGII_00544_cry",
+   "group": "flag:narrator",
+   "series": "Yalaza",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "nothing"
+  },
+  {
+   "card": 19,
+   "id": "UKVile_HpwQ_01070_cry",
+   "group": "flag:narrator",
+   "series": "Yalaza",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "nothing"
+  },
+  {
+   "card": 20,
+   "id": "EGA54UuZ6y4_00332_x2_cry",
+   "group": "flag:pitch_conflict",
+   "series": "Yunus Emre",
+   "verified": false,
+   "ext_f0": 75.8,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 21,
+   "id": "mS-N4XZxYe8_00048_cry",
+   "group": "pass",
+   "series": "Payitaht Abdülhamid",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 22,
+   "id": "J435iJWU6vc_00649_cry",
+   "group": "flag:narrator",
+   "series": "Sevda Kuşun Kanadında",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "narrator"
+  },
+  {
+   "card": 23,
+   "id": "CbkPKh8ETYc_01167_cry",
+   "group": "pass",
+   "series": "Mehmetçik Kûtulamâre",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": "male",
+   "answer": "same"
+  },
+  {
+   "card": 24,
+   "id": "maEyIHS19CY_00064_cry",
+   "group": "pass",
+   "series": "Adını Sen Koy",
+   "verified": true,
+   "ext_f0": 225.2,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 25,
+   "id": "xm82b7ewqHM_01894_cry",
+   "group": "pass",
+   "series": "Hangimiz Sevmedik",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 26,
+   "id": "aHVLZEB2juA_00032_cry",
+   "group": "flag:narrator",
+   "series": "Vuslat",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "narrator"
+  },
+  {
+   "card": 27,
+   "id": "uVeQ2RgjuCI_01565_cry",
+   "group": "pass",
+   "series": "Zengin Kız Fakir Oğlan",
+   "verified": true,
+   "ext_f0": 274.1,
+   "line_gender": "female",
+   "answer": "other"
+  },
+  {
+   "card": 28,
+   "id": "UW2LsPwX0TI_00437_cry",
+   "group": "pass",
+   "series": "Kalk Gidelim",
+   "verified": true,
+   "ext_f0": 292.1,
+   "line_gender": "female",
+   "answer": "other"
+  },
+  {
+   "card": 29,
+   "id": "RPJg_lUfHvI_01840_cry",
+   "group": "pass",
+   "series": "Seksenler",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "nothing"
+  },
+  {
+   "card": 30,
+   "id": "JvsqNlgYDFc_02511_cry",
+   "group": "pass",
+   "series": "Hangimiz Sevmedik",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 31,
+   "id": "Uap1SAA11vQ_00256_x2_cry_end",
+   "group": "pass",
+   "series": "Filinta",
+   "verified": true,
+   "ext_f0": 361.7,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 32,
+   "id": "Kjw9SWuqcZI_00967_cry",
+   "group": "pass",
+   "series": "Yalaza",
+   "verified": false,
+   "ext_f0": 271.7,
+   "line_gender": "female",
+   "answer": "narrator"
+  },
+  {
+   "card": 33,
+   "id": "bSip44F9WUs_01152_cry",
+   "group": "pass",
+   "series": "Zengin Kız Fakir Oğlan",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "nothing"
+  },
+  {
+   "card": 34,
+   "id": "6Eypw0D5r78_00352_cry",
+   "group": "flag:who_conflict",
+   "series": "Elimi Bırakma",
+   "verified": false,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "narrator"
+  },
+  {
+   "card": 35,
+   "id": "7ua_GDncZxs_00058_cry",
+   "group": "flag:who_conflict",
+   "series": "Beni Böyle Sev",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 36,
+   "id": "f7esPaC0174_00304_cry",
+   "group": "flag:narrator",
+   "series": "Yedi Güzel Adam",
+   "verified": false,
+   "ext_f0": 180.8,
+   "line_gender": "male",
+   "answer": "narrator"
+  },
+  {
+   "card": 37,
+   "id": "EFEFEcYl9es_02352_cry",
+   "group": "pass",
+   "series": "Kalk Gidelim",
+   "verified": true,
+   "ext_f0": null,
+   "line_gender": null,
+   "answer": "same"
+  },
+  {
+   "card": 38,
+   "id": "oEtGEndoDI0_01293_cry",
+   "group": "flag:pitch_conflict",
+   "series": "Lise Devriyesi",
+   "verified": true,
+   "ext_f0": 337.5,
+   "line_gender": "male",
+   "answer": "other"
+  },
+  {
+   "card": 39,
+   "id": "5EkKjw4mDdc_00201_x2_cry",
+   "group": "pass",
+   "series": "Adını Sen Koy",
+   "verified": true,
+   "ext_f0": 269.6,
+   "line_gender": "female",
+   "answer": "same"
+  },
+  {
+   "card": 40,
+   "id": "5k5s_IiQzXc_01389_cry",
+   "group": "pass",
+   "series": "Zengin Kız Fakir Oğlan",
+   "verified": true,
+   "ext_f0": 399.0,
+   "line_gender": "female",
+   "answer": "same"
+  }
+ ]
+}
