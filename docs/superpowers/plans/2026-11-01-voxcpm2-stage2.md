@@ -452,7 +452,7 @@ Expected in `NARRATION.md`: narrator seconds per episode, Whisper real-time fact
 
 - [x] **Step 4: Full run** (GPU ~3–5 h by the pilot's rate, ask first; tmux `narr`, marker `data/logs/narration_done`). Done 2026-11-02: 1,000 episodes in 3 h 54 min, 13,858 linked lines; see `stage2_results.md` "Narrator full run".
 
-- [ ] **Step 5: Calibrate by ear.** Calibration page of 40 linked clips per class (angry, sad, happy, and crying / scared / surprised if each has ≥ 1,000 linked lines), half where emotion2vec+ agrees at confidence ≥ 0.5, half where it does not; the user rates the delivery as in the 2026-10-27 calibration (`ttsdata.emotion.RATING_CHOICES`). Score with `ttsdata.emotion.score_ratings`.
+- [x] **Step 5: Calibrate by ear.** Done 2026-11-02 with 5 clips per class (user's 25-clip cap): 8/25, only sad passes (4/5); see `stage2_results.md` "Narrator labels by ear". Calibration page of 40 linked clips per class (angry, sad, happy, and crying / scared / surprised if each has ≥ 1,000 linked lines), half where emotion2vec+ agrees at confidence ≥ 0.5, half where it does not; the user rates the delivery as in the 2026-10-27 calibration (`ttsdata.emotion.RATING_CHOICES`). Score with `ttsdata.emotion.score_ratings`.
 Decision per class and source: narrator alone, narrator + emotion2vec+ ≥ 0.5, emotion2vec+ alone at the calibrated cut. A source is used when its rated precision ≥ 0.76 (the spec's target, as in the 2026-10-27 calibration). A new style (crying, scared, surprised) enters stage 2 only with precision ≥ 0.76 and ≥ 3,000 clips; otherwise it waits for a later run.
 
 - [ ] **Step 6: Commit** `ttsdata/narration.py`, both scripts, `tests/test_narration.py`, the ratings sheet under `calibration/`, `stage2_results.md`.

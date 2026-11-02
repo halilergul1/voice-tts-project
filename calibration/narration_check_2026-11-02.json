@@ -1,0 +1,268 @@
+{
+ "date": "2026-11-02",
+ "what": "Task 3B Step 5: narrator-linked lines (5 per class, user's 25-clip cap), blind listener; narrator = label from the audio description",
+ "agree": {
+  "scared": "0/5",
+  "narration_noname": "4/15",
+  "e2v_disagrees": "4/21",
+  "all": "8/25",
+  "sad": "4/5",
+  "narration": "4/10",
+  "e2v_agrees": "4/4",
+  "happy": "2/5",
+  "surprised": "1/5",
+  "angry": "1/5"
+ },
+ "items": [
+  {
+   "card": 1,
+   "clip": "ENOVyCUQnA0_00959",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Panik ve teslim olmuş pozisyonda ellerini kaldırdı cüzdan elindi.",
+   "e2v_top": "happy",
+   "e2v_target": 0.004,
+   "heard": "happy"
+  },
+  {
+   "card": 2,
+   "clip": "jrpuIZdDapQ_01576",
+   "narrator": "sad",
+   "source": "narration",
+   "desc": "Emine'nin gözlerinden gözyaşları şıpır şıpır damlıyor. Rahmet son kez kuşağı belinden geçirip bağlarken Emine'nin eline",
+   "e2v_top": "sad",
+   "e2v_target": 0.998,
+   "heard": "sad"
+  },
+  {
+   "card": 3,
+   "clip": "Km1904HtWv4_00887",
+   "narrator": "happy",
+   "source": "narration",
+   "desc": "Açık pembe mendilini yere atıverdi. Meftun fark etti, mendili dirhuba gülümseyerek uzaklaştı. Meftun pişimle aldı mendili dirhubanın peşine.",
+   "e2v_top": "sad",
+   "e2v_target": 0.009,
+   "heard": "angry"
+  },
+  {
+   "card": 4,
+   "clip": "99Iaexxewq4_01127",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Süleyman'ın gülümseyen yüzü düştü.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.149,
+   "heard": "sad"
+  },
+  {
+   "card": 5,
+   "clip": "Ea3Df8QVwZ4_00203",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Kele olanlar da arkadaşlarını gülerek sıpıyorlar. Kuzu çocukla balkız çak yaptılar. Annes alçalıyor.",
+   "e2v_top": "happy",
+   "e2v_target": 0.999,
+   "heard": "happy"
+  },
+  {
+   "card": 6,
+   "clip": "8vpg6d_fGv8_00149",
+   "narrator": "happy",
+   "source": "narration_noname",
+   "desc": "Beton dosyayı kaldırıp masaya koyduk.Mekap telefonuna bakarken gülümsüyor. Betonun mesajı şimdi gelmiş.",
+   "e2v_top": "happy",
+   "e2v_target": 1.0,
+   "heard": "happy"
+  },
+  {
+   "card": 7,
+   "clip": "IpaLiwZmtkA_01634",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "Resmi çevirip gösterdi. Herkes şaşkınlıkla bir sarpa bir de robot resme bakıyor. Sarp ellerini cebine sokmuş yüzünde yapmacık bir gülümseme.",
+   "e2v_top": "fearful",
+   "e2v_target": 0.172,
+   "heard": "neutral"
+  },
+  {
+   "card": 8,
+   "clip": "mS-N4XZxYe8_00132",
+   "narrator": "angry",
+   "source": "narration",
+   "desc": "Naime, hiddette gelince ayaklanmaya",
+   "e2v_top": "sad",
+   "e2v_target": 0.0,
+   "heard": "sad"
+  },
+  {
+   "card": 9,
+   "clip": "N_Nxk9QvP1s_00291",
+   "narrator": "scared",
+   "source": "narration",
+   "desc": "Koray sıkıntıyla yürüyüp ahşap korkula ellerine dayadı.",
+   "e2v_top": "sad",
+   "e2v_target": 0.001,
+   "heard": "neutral"
+  },
+  {
+   "card": 10,
+   "clip": "7bp9TkiIwXk_01972",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Süleymanlar panikle toprağı düzeltti",
+   "e2v_top": "happy",
+   "e2v_target": 0.005,
+   "heard": "neutral"
+  },
+  {
+   "card": 11,
+   "clip": "Uap1SAA11vQ_00936",
+   "narrator": "scared",
+   "source": "narration",
+   "desc": "Bedenine sıçradı, bedeni yana düştü. Ali isyanla yumruklarını sıkıp salladı Mustafa dehşet içinde. Davut girdi.",
+   "e2v_top": "sad",
+   "e2v_target": 0.006,
+   "heard": "sad"
+  },
+  {
+   "card": 12,
+   "clip": "V01QdmJS_fI_00649",
+   "narrator": "angry",
+   "source": "narration",
+   "desc": "Köylüler yerlerine dağıldılar. İsmail öfke ile bakıp aralarındaki sandalyeye",
+   "e2v_top": "happy",
+   "e2v_target": 0.0,
+   "heard": "angry"
+  },
+  {
+   "card": 13,
+   "clip": "AWBBGHdrnww_00425",
+   "narrator": "surprised",
+   "source": "narration",
+   "desc": "sokaka işaret etti. Dışarıya bakan Ömer ışığı görünce şaşırdı.",
+   "e2v_top": "sad",
+   "e2v_target": 0.001,
+   "heard": "neutral"
+  },
+  {
+   "card": 14,
+   "clip": "yok-kbvLL2U_00152",
+   "narrator": "sad",
+   "source": "narration",
+   "desc": "Zehra ağlamakla, Mert söylediklerinden etkilendi, düşünüyor, habib tebessüm ediyor.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.001,
+   "heard": "sad"
+  },
+  {
+   "card": 15,
+   "clip": "Q6GR7X7d8k4_01744",
+   "narrator": "scared",
+   "source": "narration_noname",
+   "desc": "Hırsız panikle merdivenlerden aşağı iniyor. Nurhan şaşırmış bir halde bir müddet hırsızın arkasından baktı.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.011,
+   "heard": "angry"
+  },
+  {
+   "card": 16,
+   "clip": "RvlCjLuWEuQ_00855",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "Yıldırım sinirlenir Ömer'in bu düşüncesine.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.022,
+   "heard": "neutral"
+  },
+  {
+   "card": 17,
+   "clip": "FNbIFbdW1Zs_01945",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "Sandalyede oturan Emel'e döndü. Ne var diye kızgınca işaret ediyor. Emel çayları doldurmasını işaret etti. Rıza sinirle taklitini yaptı.",
+   "e2v_top": "happy",
+   "e2v_target": 0.0,
+   "heard": "happy"
+  },
+  {
+   "card": 18,
+   "clip": "BeCS4X5oyXQ_02423",
+   "narrator": "surprised",
+   "source": "narration",
+   "desc": "Aynı gelenek ve damatlıkla içeri girdi. Hatice şaşırırken Hüseyin yumuşalmış bir şekilde el çırpıyor.",
+   "e2v_top": "happy",
+   "e2v_target": 0.023,
+   "heard": "surprised"
+  },
+  {
+   "card": 19,
+   "clip": "uSXzoikCu_k_01288",
+   "narrator": "happy",
+   "source": "narration",
+   "desc": "Tebessümle Naime'nin yanına yürüyor. Kemalettin gitti diye yüzünü düşüren Naime, Bidar'ı görünce gülümsedi.",
+   "e2v_top": "sad",
+   "e2v_target": 0.0,
+   "heard": "sad"
+  },
+  {
+   "card": 20,
+   "clip": "6ldZNNCK0-s_01969",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "Nazik gerildi, baş döndü ve şaşkına döndü.",
+   "e2v_top": "sad",
+   "e2v_target": 0.318,
+   "heard": "neutral"
+  },
+  {
+   "card": 21,
+   "clip": "EGA54UuZ6y4_00424",
+   "narrator": "angry",
+   "source": "narration_noname",
+   "desc": "Canı sıkın, öfkeli bir halde yola koyuldu. Subaşı arkasından yürüyor.",
+   "e2v_top": "neutral",
+   "e2v_target": 0.011,
+   "heard": "neutral"
+  },
+  {
+   "card": 22,
+   "clip": "e0CLdvMdZdA_01051",
+   "narrator": "surprised",
+   "source": "narration_noname",
+   "desc": "Senem mesajı açtı. Şaşırmış ifadesi",
+   "e2v_top": "sad",
+   "e2v_target": 0.001,
+   "heard": "other"
+  },
+  {
+   "card": 23,
+   "clip": "zUYPjO9CB9Q_00250",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "Bakışlar buruk, dolu dolu, sesleri kesilmiş, avlunun ortasında vedalaşıyorlar. Mahmud'a dönüp elini öptü.",
+   "e2v_top": "happy",
+   "e2v_target": 0.002,
+   "heard": "neutral"
+  },
+  {
+   "card": 24,
+   "clip": "8Yu_uR8rZrA_01243",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "Şakir'le Samim kapı boşluğundan çaylarını içerek izliyorlar Samim'in keyfi yerinde Şakirse üzüldü Canberkin halini",
+   "e2v_top": "happy",
+   "e2v_target": 0.028,
+   "heard": "sad"
+  },
+  {
+   "card": 25,
+   "clip": "4Qtvx6lDmKc_00586",
+   "narrator": "sad",
+   "source": "narration_noname",
+   "desc": "Firuz'e ağlamakla oldu.",
+   "e2v_top": "sad",
+   "e2v_target": 0.493,
+   "heard": "sad"
+  }
+ ]
+}

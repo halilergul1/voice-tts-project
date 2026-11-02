@@ -276,3 +276,25 @@ descriptions). 4.9 min wall, real-time factor 0.007 on the gaps: **the full 1,01
   Scared has only ~36 lines with e2v ≥ 0.5, enough for its 20 "agrees" clips.
 - Linking stays the weak point (70% no-name links). Fuzzy name matching is CPU-only and can run before Step 5
   without transcribing again.
+
+### Narrator labels by ear (Task 3B Step 5)
+
+2026-11-02, blind page `data/listening_sample/narration_calib.html`: 5 linked lines per class (2 named-and-resolved,
+3 no-name, random, one per series), 25 in all at the user's cap instead of the plan's 40 per class. Ratings and key in
+`calibration/narration_check_2026-11-02.json`.
+
+| narrator label | heard the same | heard instead |
+|---|---|---|
+| sad | 4/5 | neutral |
+| happy | 2/5 | angry, sad, sad |
+| angry | 1/5 | sad, neutral ×2, happy |
+| surprised | 1/5 | neutral ×3, other |
+| scared | 0/5 | happy, neutral ×2, sad, angry |
+
+- Overall 8/25. Named links 4/10, no-name 4/15. Where emotion2vec+'s top class agreed with the narrator: 4/4; where
+  it did not: 4/21.
+- The narrator describes the scene, not the voice of the next line: most lines sound neutral or carry a different
+  emotion. Scared and surprised are faces and reactions, almost never in the delivery.
+- Decision: narrator alone fails the 0.76 bar for angry, happy, scared and surprised, so those labels stay out of
+  training, and no new style (crying, scared, surprised) enters stage 2. Sad is 4/5, a pass on very few clips.
+  Narrator + emotion2vec+ agreement is right every time, but those clips are ones emotion2vec+ already labels.
