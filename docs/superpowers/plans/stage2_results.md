@@ -191,3 +191,25 @@ suggested order). The three tag pages share one layout, so only the setup names 
   0 of 8 by ear untrained, so the LoRA has to teach the style.
 - Open for Task 5 (the user's call): write the sound tags as English words ("[laughter]", "[breath]", "[crying]"),
   which the untrained model already links to the sounds, instead of the Turkish words it ignores or reads aloud.
+
+## Task 3B: narrator pilot (2026-11-02)
+
+`transcribe_narration.py --limit-episodes 20` then `narration_labels.py` on astrobot (tmux `narr`, 3.7 min).
+
+- 20 TRT episodes, 32.8 h audio; gaps between speech cues 11.0 h; Whisper real-time factor 0.006 on the gaps
+  (the full 1,017 episodes would take ~3 h).
+- 1,162 spans (1.21 h), but only 76 have 6 or more words (13.4 min). Most spans are Whisper's credit
+  hallucinations on silence and music ("Bu", "TRT", ".org", "sebeder", "yaptırılmıştır" at random times),
+  interjections ("Ah!", "Ne?"), songs ("Yeni yıl ... mutlu olsun", "lay lay"), unsubtitled dialogue and the
+  production credits.
+- Descriptions with an emotion word: 15, of which about one is a real narrator description ("Süzülen yaş
+  yanağına aktı. Zaman yavaş Mustafa sessizce ağlıyor."); the rest are song lyrics. Named 11, resolved to a
+  speaker cluster 1. Linked lines: 9 rows; projected to 1,017 episodes: happy ~100 (song lyrics), every other
+  class 0. The plan's bar is ~2,000 per class.
+- Check that Whisper is not just missing the narrator: Whisper on the first 3 min of Filinta 51 (whole audio, no
+  VAD) finds the subtitle dialogue and nothing in the 14 s and 11 s gaps; YouTube offers one Turkish audio track
+  for the episode (`yt-dlp -F`), so the download did not skip a description track. Only a few real
+  descriptions turn up across the 20 episodes ("Şimdi Abdülkadir'in asabını iyice bozdu.").
+- **Result: these uploads carry the describer's credit and very few descriptions, so the narrator cannot supply
+  emotion labels at volume. Stopped per the plan (Step 3 bar); Steps 4-5 not run.** Listening check of 5 clips
+  (2 empty gaps, 3 of the few description hits): `data/listening_sample/narration_check.html`, answer pending.
