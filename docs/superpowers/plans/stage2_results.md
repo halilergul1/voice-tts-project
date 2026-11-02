@@ -380,3 +380,8 @@ in the clip):
 - Flagged clips hold up as rejects: 2 "same" of 10.
 - Cry clips that are verified and pass the checks: 306 (after 141, before 132, lead 33), right at `--min-tag` 300.
 
+**Decision (user, 2026-11-03): `[ağlama]` is out of run 2a**, no re-check. A verified-only re-check would likely hear
+about 15/22 = 68% same against the 80% bar. Run 2a builds with `--tags-exclude cry`; cry clips hand their place
+back to their base clips. Getting `[ağlama]` back is stage 3 work and needs a way to tell whose cry it is (for
+example scenes with one person on screen, or a cry detector), not more of the same clips.
+

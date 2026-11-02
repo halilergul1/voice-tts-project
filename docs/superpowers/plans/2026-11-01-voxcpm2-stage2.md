@@ -507,7 +507,8 @@ Run: `.venv/bin/python -m pytest tests/test_eventclean.py -v` (FAIL `ModuleNotFo
 
 - [x] **Step 3: Run `scripts/check_events.py`** on astrobot after Task 3B Step 4 (CPU; F0 on the extension part of each event clip's `wavs_clean` audio). Expected: counts flagged per check and per tag in `stage2_results.md`.
 
-- [ ] **Step 4: Cry check 2** (blind page, one-off builder like `data/cry_page.py` or `blind_page.py style`): 30 cry clips that pass the checks + 10 flagged ones, mixed; answers "same person crying / another person crying / narrator talks / nothing". Gate (my call): among passing clips ≥ 24 of 30 "same person crying" and ≤ 1 "narrator talks". If it fails, tighten the bars (`min_sec`, F0) once and re-check; a second failure leaves `[ağlama]` out of run 2a.
+- [x] **Step 4: Cry check 2** (blind page, one-off builder like `data/cry_page.py` or `blind_page.py style`): 30 cry clips that pass the checks + 10 flagged ones, mixed; answers "same person crying / another person crying / narrator talks / nothing". Gate (my call): among passing clips ≥ 24 of 30 "same person crying" and ≤ 1 "narrator talks". If it fails, tighten the bars (`min_sec`, F0) once and re-check; a second failure leaves `[ağlama]` out of run 2a.
+  Done 2026-11-02: fails, 17/30 same, 3 narrator (all three in unconfirmed clips); "another person crying" 6/22 even among verified clips, and neither pitch nor ECAPA can see it. The user chose to drop `[ağlama]` from run 2a without a re-check (2026-11-03): Task 6 builds with `--tags-exclude cry` and no unconfirmed cries. See `stage2_results.md` "Cry check 2 by ear".
 
 - [x] **Step 5: Commit** `ttsdata/eventclean.py`, `scripts/check_events.py`, the manifest change and tests.
 
@@ -604,14 +605,14 @@ cd ~/voice-data && mv data/voxcpm_stage2 data/voxcpm_stage2_prev
 ~/tts/venv-voxcpm/bin/python scripts/make_voxcpm_manifest.py --stage 2 --out data/voxcpm_stage2 \
   --wavs wavs_sidon --long-wavs wavs_sidon --restored-only --events-wavs wavs_clean \
   --auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99 --min-tag 150 \
-  [--narration-styles data/dataset/narration_styles.jsonl] --include-unconfirmed-tags cry \
+  [--narration-styles data/dataset/narration_styles.jsonl] --tags-exclude cry \
   --event-checks data/dataset_events/event_checks.jsonl \
   --plain-rows none --labelled-ref-ratio 0.8 --label-first --label-quota 6000 --label-max-share 1.0 \
   --label-repeat 1 --replay-share 0 --max-hours 80 --anchor-share 0 [--styles-exclude/--tags-exclude from Task 4]
 ```
 Expected: `tier_report.md` lists per label the clips in tier, in slice and written; each style at its 6,000 quota (≈ 7–9 h), labelled train rows ≈ 20k–24k; every train row labelled; no FLEURS rows. Write the label table into `stage2_results.md`. Quota 6,000 keeps the styles balanced and the anchor synthesis near a night's work; raise it in a later run only if a style misses its gate narrowly. If `--restored-only` leaves any style under 3,000 clips, stop and ask the user.
 
-Unconfirmed cries are in: cry check 1 heard crying in 20 of 21 rated unconfirmed clips (bar 0.8). Event clips flagged by Task 3C (another person's cry, narrator over the sound) are out for every tag.
+`[ağlama]` is out of run 2a (cry check 2 failed, Task 3C Step 4): cry event clips hand their place back to their base clips, and the cry tag goes back to metadata as stage 3 work. Event clips flagged by Task 3C (another person's sound, narrator over the sound) are out for every other tag.
 
 - [ ] **Step 4: Does Sidon keep the style?** (GPU, ~15 min, ask first)
 
