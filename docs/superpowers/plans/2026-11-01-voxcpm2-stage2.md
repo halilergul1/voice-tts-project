@@ -647,7 +647,7 @@ Expected: train = labelled rows + equal number of anchor rows (`dataset_id: 2`, 
 
 Copy `training/voxcpm/stage1_run5a_lm.yaml` (header comment: what this run is, the manifest command from Task 5 Step 6, the step count) and set: `train_manifest` / `val_manifest` → `data/voxcpm_stage2`, `save_path: /home/ibrahim/tts/checkpoints/stage2_v2a`, `tensorboard: /home/ibrahim/tts/logs/stage2_v2a`, `lora: {enable_lm: true, enable_dit: false, enable_proj: false, r: 32, alpha: 32, dropout: 0.0}`, `learning_rate: 0.0001`, `warmup_steps: 100`, batch 4 × accum 4, `num_iters` = `max_steps` = 2 epochs = `2 * ceil(lines(train.jsonl) / 16)` (write the number), `save_interval: 200`, `valid_interval: 200`. Rank 32 (half of stage 1) because the adapter has less to learn: styles and four tags, not a language.
 
-- [x] **Step 2: Ask for the GPU** (user: "All fine, train", 2026-11-03; launched 15:45, ~1.2 s/step, 24 GB), `tmux ls`, launch** `tmux new-session -d -s stage2a 'bash ~/voice-data/scripts/train_stage2.sh'`; check `nvidia-smi` and the log after 5 minutes.
+- [x] **Step 2: Ask for the GPU, `tmux ls`, launch** (user: "All fine, train", 2026-11-03; launched 15:45, ~1.2 s/step, 24 GB) `tmux new-session -d -s stage2a 'bash ~/voice-data/scripts/train_stage2.sh'`; check `nvidia-smi` and the log after 5 minutes.
 Expected: loss lines every 10 steps, no OOM, ~0.6 s/step (≈ 30 min for 3,000 steps).
 
 - [ ] **Step 3: Write and run `scripts/score_stage2.sh STEP SCALE`** for steps 400, 800, 1200, … , end at scale 1.0, marker `data/logs/score_s2a_done`
