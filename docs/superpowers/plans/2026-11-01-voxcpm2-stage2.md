@@ -618,7 +618,7 @@ Expected: `tier_report.md` lists per label the clips in tier, in slice and writt
 
 For 200 written clips per style, score both `wavs_clean` and `wavs_sidon` copies: `score_styles.py --wavs <folder of symlinks> --target <style> --run s2_sidoncheck_<style>_<wavs>`. Record hit rates. If the Sidon hit rate is under 0.8 × the `wavs_clean` hit rate for a style, stop and ask the user before training (Sidon is flattening that style).
 
-- [ ] **Step 5: Synthesise the anchor set** (GPU, ask first; tmux `s2anchor`, marker `data/logs/s2_anchor_done`)
+- [x] **Step 5: Synthesise the anchor set** (2026-11-03: 25,000 sentences since the test keep rate was 77%; 19,181 kept) (GPU, ask first; tmux `s2anchor`, marker `data/logs/s2_anchor_done`)
 
 N = 1.25 × labelled train rows from Step 3 (expect ~80 % to pass `anchor_keep`). Synthesise with S1 exactly (`eval_tts.py all --system voxcpm2 ... --run s2_anchor --sentences data/eval/anchor_sentences.txt --utmos 1 --spk 1`), first `--limit 200` to measure the real-time factor and write the full-run estimate in `stage2_results.md`, then the rest (synth resumes). Then `make_anchor_set.py export`.
 Expected: `data/anchor_base/` with ≥ labelled-train-rows clips; keep rate printed.

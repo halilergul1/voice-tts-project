@@ -433,3 +433,15 @@ with WER 0, 185 with voice cos ≥ 0.75, none read aloud). At 77%, the plan's 1.
 give about 17,700 anchors, short of the 18,360 needed, so the sentence file is 25,000 (the first 22,950 unchanged;
 synthesis resumes). Full run started 2026-11-03 00:18 in tmux `s2anchor`, marker `data/logs/s2_anchor_done_0`;
 estimate about 12 h of synthesis plus 2-3 h of scoring.
+
+Full anchor run done 2026-11-03 ~15:30 (25,000 clips): WER 0.020, CER 0.004, UTMOS 3.12 (p10 2.74), voice consistency
+0.830, RTF 0.30. `make_anchor_set.py export` keeps 19,181 of 25,000 (76.7%) in `data/anchor_base` (24 kHz, −20 LUFS).
+The sentence file `data/eval/anchor_sentences.txt` stays on astrobot (subtitle text, not committed).
+
+### Final build with anchors (Step 6)
+
+Step 3 command plus `--anchor-dir data/anchor_base --anchor-share 0.5 --anchor-ref data/eval/refs/ref_male_b.wav`
+(the no-anchor build is kept as `data/voxcpm_stage2_noanchors`): train 36,720 = 18,360 labelled + 18,360 anchors
+(`dataset_id` 2, clip B as ref), val 315; `validate_row` passes; the labelled rows are identical to the no-anchor
+build. Non-blind check page `data/listening_sample/stage2_manifest.html` (5 labelled rows, one per written label, +
+5 anchors, with their training text).
