@@ -445,3 +445,13 @@ Step 3 command plus `--anchor-dir data/anchor_base --anchor-share 0.5 --anchor-r
 (`dataset_id` 2, clip B as ref), val 315; `validate_row` passes; the labelled rows are identical to the no-anchor
 build. Non-blind check page `data/listening_sample/stage2_manifest.html` (5 labelled rows, one per written label, +
 5 anchors, with their training text).
+
+## Task 6: run 2a (2026-11-03)
+
+LM-only LoRA from the base model, r 32, 4,590 steps (2 epochs of 36,720 rows), `training/voxcpm/stage2_style_lm.yaml`,
+started 15:45 in tmux `stage2a` (~0.75 s/step, 24 GB). `scripts/score_stage2.sh` waits in tmux `score2a` and scores
+every 400th checkpoint and the last at strength 1.0 once `data/logs/stage2a_train_done` appears: plain Freya 0-39
+(S1 setting) against `s0_voxcpm2_contB_freya40`, styles in P2 (neutral + matched text), `[gülme]` and `[nefes]` in
+P2. Plain numbers come from the new `scripts/plain_metrics.py` (SQUIM PESQ, UTMOS, Praat CPPS, syl/s; the stage 1
+one-off probes in one script, rows in `data/eval/plain_summary.md`). First row, Task 4's untrained plain run on
+`style_neutral.txt`: WER 0.0%, PESQ 4.16 (p10 4.01), UTMOS 2.99 (2.60), CPPS 10.84, 6.50 syl/s, consistency 0.860.
