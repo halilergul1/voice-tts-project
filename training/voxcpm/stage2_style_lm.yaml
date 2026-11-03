@@ -1,0 +1,45 @@
+# Stage 2 run 2a: language-model-only LoRA from the base model (not from a stage 1 adapter) that learns three
+# speaking styles as a text prefix ((neşeyle), (üzgün bir sesle), (öfkeyle)) and two sound tags ([gülme], [nefes]);
+# [ağlama] is out (cry check 2 failed). Half the rows are anchors: the untrained model reading plain text in clip B's
+# voice, so plain speech stays as it is. Data: data/voxcpm_stage2 = make_voxcpm_manifest.py --stage 2
+# --out data/voxcpm_stage2 --wavs wavs_sidon --long-wavs wavs_sidon --restored-only --events-wavs wavs_clean
+# --auto-styles --auto-conf angry=0.70,sad=0.85,happy=0.99 --min-tag 150
+# --narration-styles data/dataset/narration_styles_sad.jsonl --tags-exclude cry
+# --event-checks data/dataset_events/event_checks.jsonl --plain-rows none --labelled-ref-ratio 0.8 --label-first
+# --label-quota 6000 --label-max-share 1.0 --label-repeat 1 --replay-share 0 --max-hours 80
+# --anchor-dir data/anchor_base --anchor-share 0.5 --anchor-ref data/eval/refs/ref_male_b.wav
+# train 36,720 (18,360 labelled + 18,360 anchors) / val 315.
+# num_iters = max_steps = 2 * ceil(36720 / 16) = 4590 (two epochs). Rank 32, half of stage 1: the adapter learns
+# styles and two tags, not a language.
+pretrained_path: /home/ibrahim/tts/models/VoxCPM2
+train_manifest: /home/ibrahim/voice-data/data/voxcpm_stage2/train.jsonl
+val_manifest: /home/ibrahim/voice-data/data/voxcpm_stage2/val.jsonl
+sample_rate: 16000        # AudioVAE encoder input rate; must match audio_vae_config.sample_rate
+out_sample_rate: 48000    # AudioVAE decoder output rate; used for TensorBoard audio logging
+batch_size: 4
+grad_accum_steps: 4  # effective batch 16
+num_workers: 4
+preprocessing_num_workers: 8
+num_iters: 4590
+log_interval: 10
+valid_interval: 200
+save_interval: 200
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 100
+max_steps: 4590
+max_batch_tokens: 8192
+max_grad_norm: 1.0
+save_path: /home/ibrahim/tts/checkpoints/stage2_v2a
+tensorboard: /home/ibrahim/tts/logs/stage2_v2a
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+
+lora:
+  enable_lm: true
+  enable_dit: false
+  enable_proj: false
+  r: 32
+  alpha: 32
+  dropout: 0.0
