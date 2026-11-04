@@ -502,3 +502,15 @@ Styles in P2 on neutral text (emotion2vec+ hit rate; gate angry ≥ 0.64, sad �
   the next move is a retry (2b), but the numbers that fail are the ones emotion2vec+ / Whisper got wrong on synthetic
   speech in Task 4, so the candidate is judged by ear first: **step 4400** (best angry and laugh, plain p10 near the
   best).
+
+## Task 7: listening round 1, run 2a step 4400 at strength 1.0 (2026-11-04)
+
+Pages (blind, keys next to them in `data/listening_sample/`), all on Freya lines never used before (200-269, none in
+any eval file or the training text):
+
+- `stage2_ab_blind1.html`: 20 plain sentences (Freya 200-219), step 4400 vs untrained, both in S1 (continue + clone
+  clip B, cfg 3.0).
+- `stage2_style1.html`: 8 clips each of angry / happy / sad (P2: clone clip B + Turkish prefix) and neutral (same,
+  no prefix), drawn from Freya 220-239; asks the delivery and "natural?".
+- `stage2_tags1.html`: 10 `[gülme]` (Freya 240-249), 10 `[nefes]` (250-259), 10 untagged (260-269), P2; tag at the
+  start in 5, at the end in 5.
