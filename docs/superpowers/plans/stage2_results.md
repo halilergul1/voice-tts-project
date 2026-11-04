@@ -455,3 +455,50 @@ every 400th checkpoint and the last at strength 1.0 once `data/logs/stage2a_trai
 P2. Plain numbers come from the new `scripts/plain_metrics.py` (SQUIM PESQ, UTMOS, Praat CPPS, syl/s; the stage 1
 one-off probes in one script, rows in `data/eval/plain_summary.md`). First row, Task 4's untrained plain run on
 `style_neutral.txt`: WER 0.0%, PESQ 4.16 (p10 4.01), UTMOS 2.99 (2.60), CPPS 10.84, 6.50 syl/s, consistency 0.860.
+
+Training finished 2026-11-03 16:42 (exit 0); `score_stage2.sh` scored 12 checkpoints at strength 1.0 by 18:40.
+
+### Run 2a by numbers (Task 6 Step 3)
+
+Plain Freya 0-39 in S1 (`data/eval/plain_summary.md`), untrained `s0_voxcpm2_contB_freya40` first:
+
+| run | WER | PESQ (p10) | UTMOS (p10) | CPPS | syl/s | consistency |
+|---|---|---|---|---|---|---|
+| untrained | 1.1% | 4.24 (4.10) | 3.05 (2.83) | 11.01 | 6.41 | 0.859 |
+| step 400 | 0.5% | 4.11 (3.78) | 3.05 (2.38) | 10.51 | 6.63 | 0.865 |
+| step 1200 | 0.2% | 4.09 (3.83) | 2.93 (2.58) | 10.14 | 6.77 | 0.856 |
+| step 2400 | 0.5% | 4.17 (4.00) | 2.98 (2.67) | 10.28 | 6.50 | 0.872 |
+| step 3600 | 0.3% | 4.14 (3.91) | 3.11 (2.72) | 10.22 | 6.59 | 0.866 |
+| step 4400 | 0.5% | 4.14 (3.88) | 3.02 (2.72) | 10.11 | 6.59 | 0.868 |
+| step 4590 | 0.5% | 4.13 (3.87) | 3.02 (2.62) | 10.18 | 6.25 | 0.865 |
+
+Styles in P2 on neutral text (emotion2vec+ hit rate; gate angry ≥ 0.64, sad ≥ 0.42, happy ≥ 0.42) and tags
+(emotion2vec+ is no tag measure; Whisper laugh realised, gate ≥ 0.7):
+
+| run | angry | happy | sad (neutral rate) | laugh realised | voice cos angry / happy / sad |
+|---|---|---|---|---|---|
+| untrained P2 | 0.40 | 0.15 | 0.05 (0.50) | 0.20 | 0.65 / 0.67 / 0.67 |
+| step 400 | 0.10 | 0.20 | 0.00 (0.65) | 0.20 | 0.77 / 0.75 / 0.76 |
+| step 1200 | 0.50 | 0.25 | 0.00 (0.60) | 0.30 | 0.73 / 0.73 / 0.70 |
+| step 2000 | 0.70 | 0.30 | 0.00 (0.60) | 0.20 | 0.64 / 0.68 / 0.66 |
+| step 2400 | 0.75 | 0.15 | 0.00 (0.70) | 0.20 | 0.68 / 0.70 / 0.69 |
+| step 3600 | 0.80 | 0.30 | 0.00 (0.70) | 0.30 | 0.67 / 0.71 / 0.69 |
+| step 4000 | 0.85 | 0.20 | 0.00 (0.75) | 0.20 | 0.68 / 0.71 / 0.67 |
+| step 4400 | **0.90** | 0.15 | 0.00 (0.75) | **0.40** | 0.68 / 0.72 / 0.69 |
+| step 4590 | 0.70 | 0.15 | 0.00 (0.65) | 0.30 | 0.67 / 0.71 / 0.68 |
+
+- Plain speech holds: WER below the untrained run everywhere, speed within 0.4 syl/s, voice consistency equal or
+  higher, nothing read aloud. The p10 numbers (4th worst of 40 clips) sit 0.1-0.3 below the untrained run (gate
+  − 0.1): PESQ p10 3.8-4.0 against 4.10, UTMOS p10 2.4-2.7 against 2.83. Only step 2400 meets PESQ p10; none meets
+  UTMOS p10 (best 2.72). A small tail of weaker clips, not a general drop; the blind A/B decides.
+- Angry learns steadily (0.40 untrained, 0.90 at step 4400, gate 0.64 from step 2000 on).
+- Happy and sad do not move by emotion2vec+: happy 0.15-0.30, sad 0.00 at every checkpoint, sad clips scored
+  "neutral" 0.60-0.75. In Task 4 emotion2vec+ disagreed with the ear on synthetic speech both ways, and the user
+  heard emotion in the untrained short-prefix clones (2026-11-03, Mac, clip B), so this needs listening before a
+  verdict.
+- Laugh by Whisper 0.2-0.4 (gate 0.7); tag-set WER 6-12% with laughs (gate 3%, laughter may count as words).
+- Styled WER 0-2% on style sets. Voice cos to the plain run 0.67-0.72 (gate 0.70; untrained P2 0.65-0.67).
+- **No checkpoint meets every number gate** (sad and happy by emotion2vec+, laugh by Whisper, plain p10). Per Task 6
+  the next move is a retry (2b), but the numbers that fail are the ones emotion2vec+ / Whisper got wrong on synthetic
+  speech in Task 4, so the candidate is judged by ear first: **step 4400** (best angry and laugh, plain p10 near the
+  best).
