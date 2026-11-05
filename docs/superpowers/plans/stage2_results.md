@@ -572,3 +572,25 @@ Same layout as round 1, built on astrobot, keys next to the pages in `data/liste
 `stage2_ab_blind2.html` (20 plain pairs, Freya 270-289, vs untrained `s0_page2_ab`, seed 31),
 `stage2_style2.html` (8 each angry / happy / sad / neutral from Freya 290-309, P2, "natural?" asked, seed 32),
 `stage2_tags2.html` (10 `[gülme]` 310-319, 10 `[nefes]` 320-329, 10 untagged 330-339, P2, seed 33).
+
+### Round 2 by ear (2026-11-05)
+
+Answers in `calibration/stage2_round2_2026-11-05.json`.
+
+| page | round 1 (2a, r32) | round 2 (2b, r64, labels ×2) | gate |
+|---|---|---|---|
+| plain A/B: ours / untrained / same | 2 / 2 / 16 | 1 / 1 / 18 | **pass** |
+| angry | 0/8 | **4/8** | 6/8 |
+| happy | 0/8 | 0/8 (7 heard neutral) | 6/8 |
+| sad | 2/8 | **5/8** | 6/8 |
+| neutral | 6/8 | 6/8 (2 heard sad) | **pass** |
+| natural yes | 23/32 | **32/32** | **pass** |
+| `[gülme]` / `[nefes]` | 0/10, 0/10 | 0/10, 0/10 | 7/10 |
+| untagged with a sound | 0/10 | 0/10 | **pass** |
+
+- **Styles move with the bigger adapter and more labelled data**: angry 0 to 4, sad 2 to 5, every clip natural; happy
+  stays at 0 (its labels rest on 19 rated clips and the 0.99 confidence bar). Still below 6/8 for every style.
+- **Tags fail again and sound bad**: listener hears "ha ha ah ah" sounds, and the `[nefes]` clip "Sizin buna tepkiniz
+  ne olacak?" has scream-like sounds. **User: skip `[gülme]` and `[nefes]`** (2026-11-05); they go back to metadata.
+- Plain speech unchanged by ear (18 of 20 "same").
+- **Second failure (Task 6 retry rule): stage 2 stops for a talk with the user.**

@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-05",
+ "run": "stage2_v2b step 6988, lora scale 1.0,0, cfg 3.0",
+ "pages": {
+  "stage2_ab_blind2": {
+   "tally": {
+    "ours": 1,
+    "theirs": 1,
+    "same": 18
+   }
+  },
+  "stage2_style2": {
+   "tally": {
+    "correct_of_8": {
+     "angry": 4,
+     "happy": 0,
+     "sad": 5,
+     "neutral": 6
+    },
+    "natural_yes_of_8": {
+     "angry": 8,
+     "happy": 8,
+     "sad": 8,
+     "neutral": 8
+    }
+   }
+  },
+  "stage2_tags2": {
+   "tally": {
+    "correct_of_10": {
+     "laugh": 0,
+     "breath": 0,
+     "none": 10
+    }
+   },
+   "listener_note": "'Sizin buna tepkiniz ne olacak?' (a [nefes] clip) has scream-like sounds; laugh/breath clips overall unnatural, 'ha ha ah ah ha'. User: we can skip laugh and breath for our purpose."
+  }
+ }
+}
