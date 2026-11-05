@@ -547,3 +547,18 @@ Answers and tallies in `calibration/stage2_round1_2026-11-05.json`.
 `--label-repeat 2`, same anchors). With 2 repeats the labelled rows are 36,720 and all 19,181 anchors go in (the
 0.5 share would want 36,720), so train ≈ 55,900 rows and 2 epochs ≈ 6,990 steps (≈ 1.5 h at 0.75 s/step). A second
 failure stops stage 2 for a talk with the user.
+
+## Task 6 retry: run 2b (2026-11-05)
+
+User: "Yes, start 2b". `training/voxcpm/stage2b_style_lm.yaml`: run 2a's recipe with `r: 64, alpha: 64` and the
+labelled rows twice. `data/voxcpm_stage2b` = the run 2a manifest command with `--label-repeat 2`: train 55,901
+(36,720 labelled + all 19,181 anchors, 34% instead of 50%, since the 0.5 share would want 36,720) / val 315; 6,988
+steps (2 epochs). Started 11:50 in tmux `stage2b` (log `~/tts/logs/stage2b_train.log`, marker
+`data/logs/stage2b_train_done`).
+
+No number sweep this time: emotion2vec+ and Whisper disagreed with the ear in Task 4 and round 1, so the last
+checkpoint goes straight to listening. tmux `s2bpages` (`data/logs/s2b_pages.sh`) waits for the training marker and
+makes the round 2 clips at strength 1.0 on Freya lines 270-339 (`data/eval/s2_page2_*.txt`, same layout as round 1;
+none in any eval file, the run 2b training text or the anchor sentences): A/B 270-289 (plus the untrained run
+`s0_page2_ab`), styles 290-309, `[gülme]` 310-319, `[nefes]` 320-329, untagged 330-339. Marker
+`data/logs/s2b_pages_done`.

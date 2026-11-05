@@ -1,0 +1,40 @@
+# Stage 2 run 2b: the Task 6 retry after run 2a failed by ear (round 1, 2026-11-05: styles 0/0/2 of 8, tags 0/10).
+# Same recipe as run 2a (training/voxcpm/stage2_style_lm.yaml: LM-only LoRA from the base model, Turkish prefixes
+# (neşeyle) / (üzgün bir sesle) / (öfkeyle), tags [gülme] / [nefes], same anchors) with twice the rank and the
+# labelled rows twice. Data: data/voxcpm_stage2b = the run 2a manifest command with --label-repeat 2 and
+# --out data/voxcpm_stage2b; train 55,901 (36,720 labelled + all 19,181 anchors, 34%) / val 315.
+# num_iters = max_steps = 2 * ceil(55901 / 16) = 6988 (two epochs).
+#   tmux new -d -s stage2b 'CONFIG=~/voice-data/training/voxcpm/stage2b_style_lm.yaml \
+#       LOGFILE=~/tts/logs/stage2b_train.log DONE_MARKER=stage2b_train_done bash ~/voice-data/scripts/train_stage2.sh'
+pretrained_path: /home/ibrahim/tts/models/VoxCPM2
+train_manifest: /home/ibrahim/voice-data/data/voxcpm_stage2b/train.jsonl
+val_manifest: /home/ibrahim/voice-data/data/voxcpm_stage2b/val.jsonl
+sample_rate: 16000        # AudioVAE encoder input rate; must match audio_vae_config.sample_rate
+out_sample_rate: 48000    # AudioVAE decoder output rate; used for TensorBoard audio logging
+batch_size: 4
+grad_accum_steps: 4  # effective batch 16
+num_workers: 4
+preprocessing_num_workers: 8
+num_iters: 6988
+log_interval: 10
+valid_interval: 200
+save_interval: 200
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 100
+max_steps: 6988
+max_batch_tokens: 8192
+max_grad_norm: 1.0
+save_path: /home/ibrahim/tts/checkpoints/stage2_v2b
+tensorboard: /home/ibrahim/tts/logs/stage2_v2b
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+
+lora:
+  enable_lm: true
+  enable_dit: false
+  enable_proj: false
+  r: 64
+  alpha: 64
+  dropout: 0.0
