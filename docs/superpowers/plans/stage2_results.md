@@ -514,3 +514,36 @@ any eval file or the training text):
   no prefix), drawn from Freya 220-239; asks the delivery and "natural?".
 - `stage2_tags1.html`: 10 `[gülme]` (Freya 240-249), 10 `[nefes]` (250-259), 10 untagged (260-269), P2; tag at the
   start in 5, at the end in 5.
+
+### Round 1 by ear (Task 7 Step 2, 2026-11-05)
+
+Answers and tallies in `calibration/stage2_round1_2026-11-05.json`.
+
+| page | result | gate | verdict |
+|---|---|---|---|
+| plain A/B (20) | step 4400 preferred 2, untrained 2, same 16 | untrained ≤ candidate | **pass** |
+| style: angry | 0 of 8 (6 heard neutral, 2 happy) | ≥ 6/8 | fail |
+| style: happy | 0 of 8 (7 neutral, 1 sad) | ≥ 6/8 | fail |
+| style: sad | 2 of 8 (5 neutral, 1 angry) | ≥ 6/8 | fail |
+| style: neutral (no prefix) | 6 of 8 | ≥ 6/8 | pass |
+| natural yes | angry 6, happy 4, sad 7, neutral 6 (of 8) | ≥ 6/8 | happy fails |
+| tag `[gülme]` | 0 of 10 | ≥ 7/10 | fail |
+| tag `[nefes]` | 0 of 10 | ≥ 7/10 | fail |
+| untagged with a sound | 0 of 10 | ≤ 1/10 | pass |
+
+- **Plain speech holds by ear**: 16 of 20 pairs "same", 2-2 otherwise. The plain p10 dips in the numbers are not
+  audible.
+- **Styles: run 2a sounds like the untrained model.** The listener hears neutral for 25 of 32 clips; the result
+  matches untrained P2 in Task 4 (0 / 0 / 0 of 8). emotion2vec+ scored angry 0.90 on this checkpoint and the ear 0 of
+  8, the same gap as P4 angry in Task 4 (1.00 against 0 of 8): the classifier measures something the adapter learned
+  from the TV clips that a listener does not hear as anger.
+- **Tags: nothing heard as a laugh or a breath.** Listener's note: some clips have "ah ah ah" noises, a bit like a
+  breath or a laugh but not natural and not recognisable as either; the adapter makes an attempt, not the sound.
+  Untrained P2en (English `[laughter]`) reached 5 of 8 in Task 4.
+- The earlier base-model clone demo the user liked (2026-11-03, `tr_clone_short`) used emotional text ("Sana yüz kere
+  söyledim, arabama dokunma!"); this page uses neutral Freya text, so the emotion must come from the prefix alone.
+
+**Decision (Task 7 Step 3): styles fail by ear, so back to the Task 6 retry rule: run 2b** (`r: 64, alpha: 64`,
+`--label-repeat 2`, same anchors). With 2 repeats the labelled rows are 36,720 and all 19,181 anchors go in (the
+0.5 share would want 36,720), so train ≈ 55,900 rows and 2 epochs ≈ 6,990 steps (≈ 1.5 h at 0.75 s/step). A second
+failure stops stage 2 for a talk with the user.

@@ -682,9 +682,9 @@ All pages built with `scripts/blind_page.py`, sentences never heard before, keys
 | Styled intelligibility | WER on style and tag sets, labels stripped | ≤ 3 % |
 | Tags | tag page: 10 clips per tag + 10 untagged | `[gülme]` heard ≥ 7/10 and Whisper laugh realised ≥ 0.7; `[nefes]` ≥ 7/10; `[ağlama]` ≥ 6/10; untagged clips with a heard sound ≤ 1/10; tag word read aloud 0 |
 
-- [ ] **Step 1: Build and send the three pages** (`stage2_ab_blind1.html`, `stage2_style1.html`, `stage2_tags1.html` in `data/listening_sample/`).
+- [x] **Step 1: Build and send the three pages** (2026-11-04, run 2a step 4400 at 1.0) (`stage2_ab_blind1.html`, `stage2_style1.html`, `stage2_tags1.html` in `data/listening_sample/`).
 
-- [ ] **Step 2: Record the user's answers** with `tally_ab` / `tally_style` in `stage2_results.md` (one section per round, as in stage 1).
+- [x] **Step 2: Record the user's answers** (2026-11-05: plain passes, styles 0/0/2 of 8, tags 0/10) with `tally_ab` / `tally_style` in `stage2_results.md` (one section per round, as in stage 1).
 
 - [ ] **Step 3: Decide**
 

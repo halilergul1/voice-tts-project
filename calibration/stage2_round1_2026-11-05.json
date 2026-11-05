@@ -1,0 +1,43 @@
+{
+ "date": "2026-11-05",
+ "run": "stage2_v2a step 4400, lora scale 1.0,0, cfg 3.0",
+ "pages": {
+  "stage2_ab_blind1": {
+   "answers": "ab: 1:same 2:B 3:same 4:same 5:same 6:same 7:same 8:same 9:same 10:same 11:same 12:B 13:same 14:same 15:B 16:same 17:same 18:same 19:A 20:same",
+   "tally": {
+    "ours": 2,
+    "theirs": 2,
+    "same": 16,
+    "name_theirs": "the untrained model"
+   }
+  },
+  "stage2_style1": {
+   "answers": "style: 1:neutral 2:happy 3:sad 4:neutral 5:neutral 6:angry 7:neutral 8:neutral 9:neutral 10:neutral 11:sad 12:sad 13:neutral 14:neutral 15:neutral 16:sad 17:happy 18:neutral 19:neutral 20:neutral 21:neutral 22:neutral 23:neutral 24:neutral 25:happy 26:neutral 27:neutral 28:neutral 29:neutral 30:neutral 31:neutral 32:neutral | natural: 1:yes 2:yes 3:yes 4:yes 5:yes 6:yes 7:yes 8:yes 9:yes 10:yes 11:yes 12:yes 13:no 14:yes 15:no 16:yes 17:yes 18:yes 19:yes 20:yes 21:no 22:yes 23:yes 24:no 25:no 26:no 27:yes 28:yes 29:no 30:yes 31:no 32:no",
+   "tally": {
+    "correct_of_8": {
+     "angry": 0,
+     "happy": 0,
+     "sad": 2,
+     "neutral": 6
+    },
+    "natural_yes_of_8": {
+     "angry": 6,
+     "happy": 4,
+     "sad": 7,
+     "neutral": 6
+    }
+   }
+  },
+  "stage2_tags1": {
+   "answers": "style: 1:none 2:none 3:none 4:none 5:none 6:none 7:none 8:none 9:none 10:none 11:none 12:none 13:none 14:none 15:none 16:none 17:none 18:none 19:none 20:none 21:none 22:none 23:none 24:none 25:none 26:none 27:none 28:none 29:none 30:none",
+   "tally": {
+    "correct_of_10": {
+     "laugh": 0,
+     "breath": 0,
+     "none": 10
+    }
+   },
+   "listener_note": "some clips have ah-ah-ah noises, kind of breath or laugh but not natural and not heard as either"
+  }
+ }
+}
