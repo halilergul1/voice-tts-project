@@ -562,3 +562,13 @@ makes the round 2 clips at strength 1.0 on Freya lines 270-339 (`data/eval/s2_pa
 none in any eval file, the run 2b training text or the anchor sentences): A/B 270-289 (plus the untrained run
 `s0_page2_ab`), styles 290-309, `[gülme]` 310-319, `[nefes]` 320-329, untagged 330-339. Marker
 `data/logs/s2b_pages_done`.
+
+Training finished 2026-11-05 13:17 (6,988 steps, exit 0; loss/diff 0.82 at the start, about 0.5-0.9 per batch at
+the end). Round 2 clips from `step_0006988` at strength 1.0 done 13:22.
+
+## Task 7: listening round 2, run 2b step 6988 at strength 1.0 (2026-11-05)
+
+Same layout as round 1, built on astrobot, keys next to the pages in `data/listening_sample/`:
+`stage2_ab_blind2.html` (20 plain pairs, Freya 270-289, vs untrained `s0_page2_ab`, seed 31),
+`stage2_style2.html` (8 each angry / happy / sad / neutral from Freya 290-309, P2, "natural?" asked, seed 32),
+`stage2_tags2.html` (10 `[gülme]` 310-319, 10 `[nefes]` 320-329, 10 untagged 330-339, P2, seed 33).
