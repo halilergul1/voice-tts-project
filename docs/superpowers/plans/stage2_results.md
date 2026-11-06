@@ -594,3 +594,24 @@ Answers in `calibration/stage2_round2_2026-11-05.json`.
   ne olacak?" has scream-like sounds. **User: skip `[gülme]` and `[nefes]`** (2026-11-05); they go back to metadata.
 - Plain speech unchanged by ear (18 of 20 "same").
 - **Second failure (Task 6 retry rule): stage 2 stops for a talk with the user.**
+
+## Run 2c: styles only (2026-11-06)
+
+After the talk the user chose a third run (2026-11-05): no sound tags, fewer voice samples on the styled rows (the
+VoxCPM guide asks for 30-50% of rows with `ref_audio`), each labelled clip three times, and a look at the happy
+training clips.
+
+- Data: `data/voxcpm_stage2c` = the run 2b manifest command with `--tags-exclude cry,laugh,breath
+  --labelled-ref-ratio 0.4 --label-repeat 3 --out data/voxcpm_stage2c` (log `data/logs/manifest_stage2c.log`).
+  Train 71,429 / val 291: `(öfkeyle)` 17,535, `(üzgün bir sesle)` 17,505, `(neşeyle)` 17,184 rows (17,416 clips ×3,
+  40% with a plain same-speaker ref), 24 mixed-prefix rows, 19,181 anchors (27%). No row has a `[tag]`; tagged event
+  clips went back to their plain base clips, so no happy row comes from the laugh folder any more (run 2b had some).
+- Config `training/voxcpm/stage2c_style_lm.yaml` (run 2b with the new manifests, `stage2_v2c` paths,
+  8,930 steps = two epochs). Started 09:43 in tmux `stage2c` on astrobot, about 0.65 s/step, so about 1.6 h.
+- Round 3 page clips queued (tmux `s2cpages`, `data/logs/s2c_pages.sh`): last checkpoint at strength 1.0, P2, Freya
+  340-359 (`s2_page3_ab.txt`, A/B vs untrained `s0_page3_ab`) and 360-379 (`s2_page3_style.txt`, angry / happy / sad /
+  neutral). Styles only; no tag page.
+- Happy check (while 2c trains): `data/listening_sample/stage2_trainclips_check.html`, 10 real training clips each
+  for angry / happy / sad from the 2c manifest plus 10 corpus clips emotion2vec+ calls neutral at ≥ 0.95, 2.5-8 s,
+  no text shown, seed 41 (folders and sources in `data/eval/s2c_trainclips/` on astrobot). If the listener hears the
+  happy clips as neutral, the happy labels are the problem, not the training.

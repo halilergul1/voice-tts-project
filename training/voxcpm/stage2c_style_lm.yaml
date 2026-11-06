@@ -1,0 +1,41 @@
+# Stage 2 run 2c: after round 2 by ear (2026-11-05: angry 4/8, sad 5/8, happy 0/8, tags 0/10, tags dropped by the
+# user). Same as run 2b (training/voxcpm/stage2b_style_lm.yaml: LM-only LoRA r64 from the base model, Turkish
+# prefixes (neşeyle) / (üzgün bir sesle) / (öfkeyle), same anchors) with no sound tags, fewer voice samples on the
+# styled rows and the labelled rows three times. Data: data/voxcpm_stage2c = the run 2b manifest command with
+# --tags-exclude cry,laugh,breath --labelled-ref-ratio 0.4 --label-repeat 3 --out data/voxcpm_stage2c;
+# train 71,429 (52,248 labelled rows from 17,416 clips + all 19,181 anchors, 27%) / val 291; no [tag] rows.
+# num_iters = max_steps = 2 * ceil(71429 / 16) = 8930 (two epochs).
+#   tmux new -d -s stage2c 'CONFIG=~/voice-data/training/voxcpm/stage2c_style_lm.yaml \
+#       LOGFILE=~/tts/logs/stage2c_train.log DONE_MARKER=stage2c_train_done bash ~/voice-data/scripts/train_stage2.sh'
+pretrained_path: /home/ibrahim/tts/models/VoxCPM2
+train_manifest: /home/ibrahim/voice-data/data/voxcpm_stage2c/train.jsonl
+val_manifest: /home/ibrahim/voice-data/data/voxcpm_stage2c/val.jsonl
+sample_rate: 16000        # AudioVAE encoder input rate; must match audio_vae_config.sample_rate
+out_sample_rate: 48000    # AudioVAE decoder output rate; used for TensorBoard audio logging
+batch_size: 4
+grad_accum_steps: 4  # effective batch 16
+num_workers: 4
+preprocessing_num_workers: 8
+num_iters: 8930
+log_interval: 10
+valid_interval: 200
+save_interval: 200
+learning_rate: 0.0001
+weight_decay: 0.01
+warmup_steps: 100
+max_steps: 8930
+max_batch_tokens: 8192
+max_grad_norm: 1.0
+save_path: /home/ibrahim/tts/checkpoints/stage2_v2c
+tensorboard: /home/ibrahim/tts/logs/stage2_v2c
+lambdas:
+  loss/diff: 1.0
+  loss/stop: 1.0
+
+lora:
+  enable_lm: true
+  enable_dit: false
+  enable_proj: false
+  r: 64
+  alpha: 64
+  dropout: 0.0
