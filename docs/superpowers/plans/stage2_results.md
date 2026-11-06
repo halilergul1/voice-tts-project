@@ -640,3 +640,24 @@ Training ended 11:26 (8,930 steps, exit 0); clips done 11:29. Built on astrobot,
 `data/listening_sample/`: `stage2_ab_blind3.html` (20 plain pairs, Freya 340-359, vs untrained `s0_page3_ab`,
 seed 34) and `stage2_style3.html` (8 each angry / happy / sad / neutral from Freya 360-379, P2, "natural?" asked,
 seed 35). No tag page.
+
+### Round 3 by ear (2026-11-07)
+
+Answers in `calibration/stage2_round3_2026-11-07.json`.
+
+| page | round 2 (2b: r64, labels ×2, ref 0.8, tags) | round 3 (2c: labels ×3, ref 0.4, no tags) | gate |
+|---|---|---|---|
+| plain A/B: ours / untrained / same | 1 / 1 / 18 | 2 / **3** / 15 | untrained ≤ ours: **fails by one clip** |
+| angry | 4/8 | **1/8** (5 heard neutral, 2 happy) | 6/8 |
+| happy | 0/8 | 0/7 (3 heard sad, 3 neutral, 1 angry) | 6/8 |
+| sad | 5/8 | **6/8** | **pass** |
+| neutral | 6/8 | 7/8 | **pass** |
+| natural yes | 32/32 | 25/31 (neutral 5/8) | |
+
+- **Sad reaches the gate** for the first time. **Angry falls back** from 4 to 1, **happy stays at 0** although its
+  training clips sound happy (8/10 on the check page), and the happy prefix now sometimes sounds sad.
+- **Plain speech fails the regression rule by one clip** (3 vs 2, 15 same). Small, but by the plan's rule run 2c does
+  not pass.
+- Each round uses new sentences and 8 clips per style, so one or two clips either way is within noise; the angry drop
+  (4 to 1) is larger than that.
+- Run 2b stays the best run overall (plain passes, angry 4, sad 5). Next step is a talk with the user.

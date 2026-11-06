@@ -1,0 +1,13 @@
+{
+ "run": "2c step 8930, strength 1.0, P2 (clone clip B, Turkish prefix as --prompt)",
+ "pages": {"ab": "data/listening_sample/stage2_ab_blind3.html", "style": "data/listening_sample/stage2_style3.html"},
+ "answers": {
+  "ab": "ab: 1:B 2:same 3:B 4:same 5:same 6:same 7:same 8:same 9:same 10:B 11:B 12:same 13:same 14:same 15:B 16:same 17:same 18:same 19:same 20:same",
+  "style": "style: 1:happy 2:neutral 3:neutral 4:neutral 5:neutral 6:neutral 7:sad 8:sad 9:neutral 10:neutral 11:neutral 12:angry 13:neutral 14:neutral 15:neutral 16:sad 17:neutral 18:neutral 19:angry 20:sad 21:sad 22:neutral 23:sad 24:neutral 25:- 26:sad 27:happy 28:neutral 29:sad 30:sad 31:sad 32:neutral | natural: 1:yes 2:yes 3:no 4:no 5:yes 6:yes 7:yes 8:- 9:yes 10:yes 11:yes 12:yes 13:yes 14:yes 15:yes 16:yes 17:yes 18:no 19:yes 20:yes 21:yes 22:yes 23:yes 24:no 25:no 26:yes 27:yes 28:no 29:yes 30:yes 31:yes 32:yes"
+ },
+ "ab": {"ours": 2, "untrained": 3, "same": 15},
+ "per_style": {"angry": {"correct": 1, "n": 8}, "happy": {"correct": 0, "n": 7}, "sad": {"correct": 6, "n": 8}, "neutral": {"correct": 7, "n": 8}},
+ "confusion": {"angry -> angry": 1, "angry -> happy": 2, "angry -> neutral": 5, "happy -> angry": 1, "happy -> neutral": 3,
+               "happy -> sad": 3, "neutral -> neutral": 7, "neutral -> sad": 1, "sad -> neutral": 2, "sad -> sad": 6},
+ "natural": {"angry": {"yes": 7, "n": 8}, "happy": {"yes": 7, "n": 8}, "neutral": {"yes": 5, "n": 8}, "sad": {"yes": 6, "n": 7}}
+}
