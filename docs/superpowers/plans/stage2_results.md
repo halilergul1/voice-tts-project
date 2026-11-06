@@ -615,3 +615,21 @@ training clips.
   for angry / happy / sad from the 2c manifest plus 10 corpus clips emotion2vec+ calls neutral at ≥ 0.95, 2.5-8 s,
   no text shown, seed 41 (folders and sources in `data/eval/s2c_trainclips/` on astrobot). If the listener hears the
   happy clips as neutral, the happy labels are the problem, not the training.
+
+### Happy check by ear (2026-11-06)
+
+Answers in `calibration/stage2_trainclips_check_2026-11-06.json` (listener: "for some it was hard to know even for me").
+
+| training clips labelled | heard as labelled | other picks |
+|---|---|---|
+| happy | **8/10** | 2 neutral |
+| angry | 5/9 (1 unanswered) | 3 neutral, 1 happy |
+| sad | 5/10 | 4 neutral, 1 happy |
+| neutral (emotion2vec+ ≥ 0.95) | 7/10 | 3 sad |
+
+- **The happy labels are good**: 8 of 10 happy training clips sound happy. So happy 0/8 in rounds 1-2 is the model not
+  learning or not showing happy, not bad labels. One known difference: run 2b's happy rows partly came from laugh
+  clips with `[gülme]`; run 2c has none of those.
+- Angry and sad training clips are heard as labelled only about half the time, the rest mostly as neutral. Run 2b's
+  angry 4/8 and sad 5/8 are already near that rate, so for those two styles the labels may be the ceiling, not the
+  model.

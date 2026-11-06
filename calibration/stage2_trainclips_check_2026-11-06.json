@@ -1,0 +1,9 @@
+{
+ "page": "data/listening_sample/stage2_trainclips_check.html",
+ "what": "run 2c training clips, 10 each labelled angry / happy / sad (2.5-8 s) plus 10 corpus clips emotion2vec+ calls neutral at >= 0.95; no text shown; seed 41",
+ "answers": "style: 1:sad 2:sad 3:sad 4:happy 5:happy 6:angry 7:neutral 8:neutral 9:angry 10:happy 11:happy 12:neutral 13:angry 14:happy 15:neutral 16:neutral 17:neutral 18:neutral 19:neutral 20:sad 21:angry 22:happy 23:neutral 24:angry 25:- 26:neutral 27:sad 28:happy 29:neutral 30:happy 31:neutral 32:sad 33:neutral 34:neutral 35:happy 36:neutral 37:sad 38:happy 39:sad 40:neutral",
+ "listener_note": "for some it was hard to know even for me",
+ "per_style": {"happy": {"correct": 8, "n": 10}, "angry": {"correct": 5, "n": 9}, "sad": {"correct": 5, "n": 10}, "neutral": {"correct": 7, "n": 10}},
+ "confusion": {"angry -> angry": 5, "angry -> happy": 1, "angry -> neutral": 3, "happy -> happy": 8, "happy -> neutral": 2,
+               "neutral -> neutral": 7, "neutral -> sad": 3, "sad -> happy": 1, "sad -> neutral": 4, "sad -> sad": 5}
+}
