@@ -633,3 +633,10 @@ Answers in `calibration/stage2_trainclips_check_2026-11-06.json` (listener: "for
 - Angry and sad training clips are heard as labelled only about half the time, the rest mostly as neutral. Run 2b's
   angry 4/8 and sad 5/8 are already near that rate, so for those two styles the labels may be the ceiling, not the
   model.
+
+## Task 7: listening round 3, run 2c step 8930 at strength 1.0 (2026-11-06)
+
+Training ended 11:26 (8,930 steps, exit 0); clips done 11:29. Built on astrobot, keys next to the pages in
+`data/listening_sample/`: `stage2_ab_blind3.html` (20 plain pairs, Freya 340-359, vs untrained `s0_page3_ab`,
+seed 34) and `stage2_style3.html` (8 each angry / happy / sad / neutral from Freya 360-379, P2, "natural?" asked,
+seed 35). No tag page.
